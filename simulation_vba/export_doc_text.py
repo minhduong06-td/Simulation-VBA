@@ -18,26 +18,12 @@ HOST = "127.0.0.1"
 PORT = 2002
 
 def is_word_file(fname):
-    """Check to see if the given file is a Word file.
-
-    @param fname (str) The path of the file to check.
-
-    @return (bool) True if the file is a Word file, False if not.
-
-    """
     typ = subprocess.check_output(["file", fname])
     return ((b"Microsoft Office Word" in typ) or
             (b"Word 2007+" in typ) or
             (b"Microsoft OOXML" in typ))
 
 def wait_for_uno_api():
-    """Sleeps until the libreoffice UNO api is available by the headless
-    libreoffice process. Takes a bit to spin up even after the OS
-    reports the process as running. Tries 3 times before giving up and
-    throwing an Exception.
-
-    """
-
     tries = 0
 
     while tries < 3:
@@ -51,12 +37,6 @@ def wait_for_uno_api():
     raise Exception("libreoffice UNO API failed to start")
 
 def get_office_proc():
-    """
-    Returns the process info for the headless libreoffice process. None if it's not running
-
-    @return (psutil.Process)
-    """
-
     for proc in psutil.process_iter():
         try:
             pinfo = proc.as_dict(attrs=['pid', 'name', 'username'])
@@ -68,20 +48,9 @@ def get_office_proc():
     return None
 
 def is_office_running():
-    """Check to see if the headless LibreOffice process is running.
-
-    @return (bool) True if running False otherwise
-
-    """
-
     return True if get_office_proc() else False
 
 def run_soffice():
-    """Start the headless, UNO supporting, LibreOffice process to access
-    the API, if it is not already running.
-
-    """
-
     if not is_office_running():
 
         cmd = "/usr/lib/libreoffice/program/soffice.bin --headless --invisible " + \
@@ -92,44 +61,14 @@ def run_soffice():
         wait_for_uno_api()
 
 def get_document(fname, connection):
-    """Load the component containing the word document.
-
-    @param connection (ScriptContext) Connection to the headless LibreOffice process
-
-    @param fname (str) Path to the Word doc
-
-    @return document (Writer) UNO object representing the loaded Word
-    document.
-
-    """
-
     url = convert_path_to_url(fname)
     document = Writer(connection, url)
     return document
 
 def get_text(document):
-    """Get the document text of a given Word file.
-
-    @param document (Writer) LibreOffice component containing the
-    document.
-
-    @return (str) The text from the document.
-
-    """
-
     return "\x0c" + str(document.getText().getString())
 
 def get_tables(document):
-    """Get the text tables embedded in the Word doc.
-
-    @param document (Writer) LibreOffice component containing the
-    document.
-
-    @return (list) List of 2D arrays containing text content of all
-    cells in all text tables of the document
-
-    """
-
     data_array_list = []
 
     text_tables = document.getTextTables()

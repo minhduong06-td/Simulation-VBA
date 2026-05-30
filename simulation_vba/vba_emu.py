@@ -1,6 +1,5 @@
 #!/usr/bin/env pypy
 
-
 from __future__ import print_function
 
 import pyparsing
@@ -43,26 +42,9 @@ from core.logger import log
 from core.logger import CappedFileHandler
 from logging import FileHandler
 
-
-
-
 __version__ = '1.0.3'
 
-
-
-    
 def get_vb_contents_from_hta(vba_code):
-    """Pull out Visual Basic code from .hta file contents.
-
-    @param vba_code (str) The HTA file contents from which to extract
-    the VBScript code.
-
-    @return (str) If the given data is HTA that contains VBScript
-    script elements, the VBScript in the HTA is returned. If the given
-    data is not VBScript HTA, the original data is returned.
-
-    """
-
     return deobfuscation.extract_vb_from_hta(vba_code)
 
 
@@ -91,24 +73,6 @@ def parse_stream(subfilename,
                  vba_code=None,
                  strip_useless=False,
                  local_funcs=None):
-    """Parse the macros from a single OLE stream.
-
-    @param subfilename (str) The name of the file containing the    
-    macros.
-
-    @param stream_path (??) ??
-
-    @param vba_filename (??) ??
-
-    @param vba_code (str) The macro code to parse.
-
-    @param local_funcs (list) A list of the names of already declared
-    local VBA functions.
-
-    @return (Module object) A parsed module object.
-
-    """
-    
     if (local_funcs is None):
         local_funcs = []
     
@@ -167,15 +131,6 @@ def parse_stream(subfilename,
     return m
 
 def get_all_local_funcs(vba):
-    """Get the names of all locally defined functions. Also get the names
-    of all defined constants. The constant names are saved in
-    core.strip_lines.defined_constants.
-
-    @params vba (VBA_Parser object) The olevba VBA_Parser object for
-    reading the Office file being analyzed.
-
-    """
-
     pat = r"(?:Sub |Function )([^\(]+)"
     r = []
     for (_, _, _, vba_code) in vba.extract_macros():
@@ -191,19 +146,6 @@ def get_all_local_funcs(vba):
     return r
             
 def parse_streams(vba, strip_useless=False):
-    """Parse all the VBA streams and return list of parsed module
-    objects.
-
-    @params vba (VBA_Parser object) The olevba VBA_Parser object for
-    reading the Office file being analyzed.
-
-    @param strip_useless (boolean) Flag turning on/off modification of
-    VB code prior to parsing.
-
-    @return (list) A list of parsed Module objects.
-
-    """
-
     local_funcs = get_all_local_funcs(vba)
     
     r = []
@@ -216,16 +158,6 @@ def parse_streams(vba, strip_useless=False):
 
 
 def read_excel_sheets(fname):
-    """Read all the sheets of a given Excel file as CSV and return them
-    as a ExcelBook object.
-
-    @param fname (str) The name of the Excel file to read.
-
-    @return (core.excel.ExceBook object) On success return the Excel
-    sheets as an ExcelBook object. Returns None on error.
-
-    """
-
     try:
         f = open(fname, 'rb')
         data = f.read()
@@ -237,19 +169,7 @@ def read_excel_sheets(fname):
         return None
     
 def pull_urls_office97(fname):
-    """Pull URLs directly from an Office97 file.
-
-    @param fname (str) The name of the file from which to scrape
-    URLs.
-
-    @return (set) The URLs scraped from the file. This will be empty
-    if there are no URLs.
-
-    """
     return read_ole_fields.pull_urls_office97(fname, False, None)
-    
-
-# pylint: disable=too-many-arguments
 def process_file(container,
                  filename,
                  data,
@@ -264,60 +184,6 @@ def process_file(container,
                  artifact_dir=None,
                  out_file_name=None,
                  do_jit=False):
-    """Process an Office file with VBA macros, a VBScript file, or
-    VBScript HTA file with simulation_vba. This is the main programatic
-    interface for simulation_vba.
-
-    @param container (str) Path and filename of container if the file is within
-    a zip archive, None otherwise.
-
-    @param filename (str) str, path and filename of file on disk, or
-    within the container.
-
-    @param data (bytes) content of the file if it is in a container,
-    None if it is a file on disk.
- 
-    @param strip_useless (boolean) Flag turning on/off modification of
-    VB code prior to parsing.
-
-    @param entry_points (list) A list of the names (str) of the VB functions
-    from which to start emulation.
-    
-    @param time_limit (int) The emulation time limit, in minutes. If
-    None there is not time limit.
-
-    @param verbose (boolean) Flag turning debug logging on/off.
-
-    @param display_int_iocs (boolean) Flag turning on/off the
-    reporting of intermediate IOCs (base64 strings and URLs) found
-    during the emulation process.
-
-    @param set_log (boolean) A flag??
-
-    @param tee_log (boolean) A flag turning on/off saving all of
-    SimulationVBA's output in a text log file. The log file will be
-    FNAME.log, where FNAME is the name of the file being analyzed.
-
-    @param tee_bytes (int) If tee_log is true, this gives the number
-    of bytes at which to cap the saved log file.
-
-    @param artifact_dir (str) The directory in which to save artifacts
-    dropped by the sample under analysis. If None the artifact
-    directory will be FNAME_artifacts/ where FNAME is the name of the
-    file being analyzed.
-
-    @param out_file_name (str) The name of the file in which to store
-    the SimulationVBA analysis results as JSON. If None no JSON results
-    will be saved.
-
-    @param do_jit (str) A flag turning on/off doing VB -> Python
-    transpiling of loops to speed up loop emulation.
-
-    @return (list) A list of actions if actions found, an empty list
-    if no actions found, and None if there was an error.
-
-    """
-    
     if verbose:
         colorlog.basicConfig(level=logging.DEBUG, format='%(log_color)s%(levelname)-8s %(message)s')
     elif set_log:
@@ -374,15 +240,6 @@ def process_file(container,
     return r
 
 def _remove_duplicate_iocs(iocs):
-    """Remove IOC strings that are substrings of other IOC strings.
-
-    @param iocs (list) List of IOCs (str).
-
-    @return (set) The original IOC list with duplicate-ish IOC strings
-    stripped out.
-
-    """
-
     r = set()
     skip = set()
     log.info("Found " + str(len(iocs)) + " possible IOCs. Stripping duplicates...")
@@ -407,18 +264,6 @@ def _remove_duplicate_iocs(iocs):
     return r
 
 def _get_vba_parser(data):
-    """Get an olevba VBA_Parser object for reading an Office file. This
-    handles regular Office files and HTA files with VBScript script
-    elements.
-
-    @param data (str) The file contents for which to generate a
-    VBA_Parser.
-
-    @return (VBA_Parser object) On success, the olevba VBA_Parser
-    object for the given file contents. On error, None.
-
-    """
-    
     vba = None
     try:
         vba = VBA_Parser('', data, relaxed=True)
@@ -434,17 +279,6 @@ def _get_vba_parser(data):
     return vba
 
 def pull_embedded_pe_files(data, out_dir):
-    """Directly pull out any PE files embedded in the given data. The PE
-    files will be saved in a directory and will be named things like
-    embedded*.exe.
-
-    @param data (str) The contents of the file being analyzed.
-
-    @param out_dir (str) The directory in which to save extracted PE
-    files.
-
-    """
-
     if core.filetype.is_office2007_file(data, is_data=True):
 
         data_io = io.BytesIO(data)
@@ -482,31 +316,6 @@ def pull_embedded_pe_files(data, out_dir):
         out_index += 1
 
 def _report_analysis_results(vm, data, display_int_iocs, orig_filename, out_file_name):
-    """Report analysis results (screen and file) to the user. Results will
-    be printed to stdout and saved in an output file as JSON if needed.
-
-    @param vm (SimulationVBA object) The SimulationVBA emulation engine
-    object that did the emulation.
-
-    @param data (str) The read in Office file (data).
-
-    @param display_int_iocs (boolean) Flag turning on/off the
-    reporting of intermediate IOCs (base64 strings and URLs) found
-    during the emulation process.
-
-    @param orig_filename (str) path and filename of file on disk, or
-    within the container.
-
-    @param out_file_name (str) The name of the file in which to store
-    the SimulationVBA analysis results as JSON. If None no JSON results
-    will be saved.
-
-    @return (tuple) A 3 element tuple where the 1st element is a list
-    of reported actions all converted to strings, the 2nd element is a
-    list of unique intermediate IOCs, and the 3rd element is a list of
-    shell code bytes injected by the VB (empty list if no shell code).
-
-    """
 
     safe_print('\nRecorded Actions:')
     safe_print(vm.dump_actions())
@@ -586,45 +395,6 @@ def _process_file (filename,
                    artifact_dir=None,
                    out_file_name=None,
                    do_jit=False):
-    """Process a single file.
-
-    @param container (str) Path and filename of container if the file is within
-    a zip archive, None otherwise.
-
-    @param filename (str) path and filename of file on disk, or within
-    the container.
-
-    @param data (bytes) content of the file if it is in a container,
-    None if it is a file on disk.
-
-    @param strip_useless (boolean) Flag turning on/off modification of
-    VB code prior to parsing.
-
-    @param entry_points (list) A list of the names (str) of the VB functions
-    from which to start emulation.
-
-    @param time_limit (int) The emulation time limit, in minutes. If
-    None there is not time limit.
-
-    @param display_int_iocs (boolean) Flag turning on/off the
-    reporting of intermediate IOCs (base64 strings and URLs) found
-    during the emulation process.
-
-    @param artifact_dir (str) The directory in which to save artifacts
-    dropped by the sample under analysis. If None the artifact
-
-    @param out_file_name (str) The name of the file in which to store
-    the SimulationVBA analysis results as JSON. If None no JSON results
-    will be saved.
-
-    @param do_jit (str) A flag turning on/off doing VB -> Python
-    transpiling of loops to speed up loop emulation.
-
-    @return (list) A list of actions if actions found, an empty list
-    if no actions found, and None if there was an error.
-
-    """
-
     sys.setrecursionlimit(13000)
 
     if (time_limit is not None):
@@ -738,18 +508,6 @@ def _process_file (filename,
         return None
 
 def process_file_scanexpr (container, filename, data):
-    """Process a single file.
-
-    @param container (str) Path and filename of container if the file is within
-    a zip archive, None otherwise.
-
-    @param filename (str) path and filename of file on disk, or within
-    the container.
-
-    @param data (bytes) Content of the file if it is in a container,
-    None if it is a file on disk.
-
-    """
     if container:
         display_filename = '%s in %s' % (filename, container)
     else:
@@ -805,10 +563,6 @@ def process_file_scanexpr (container, filename, data):
     safe_print('')
 
 def print_version():
-    """Print SimulationVBA version information.
-
-    """
-
     safe_print("Version Information:\n")
     safe_print("SimulationVBA:\t\t" + str(__version__))
     safe_print("Python:\t\t\t" + str(sys.version_info))
@@ -825,16 +579,13 @@ def main():
 
     sys.setrecursionlimit(13000)
     
-    safe_print(''' _    ___                 __  ___            __             
-| |  / (_)___  ___  _____/  |/  /___  ____  / /_____  __  __
-| | / / / __ \/ _ \/ ___/ /|_/ / __ \/ __ \/ //_/ _ \/ / / /
-| |/ / / /_/ /  __/ /  / /  / / /_/ / / / / ,< /  __/ /_/ / 
-|___/_/ .___/\___/_/  /_/  /_/\____/_/ /_/_/|_|\___/\__, /  
-     /_/                                           /____/   ''')
-    safe_print('vmonkey %s - https://github.com/decalage2/ViperMonkey' % __version__)
-    safe_print('THIS IS WORK IN PROGRESS - Check updates regularly!')
-    safe_print('Please report any issue at https://github.com/decalage2/ViperMonkey/issues')
-    safe_print('')
+    safe_print('''   _____ _                 __      __  _                  ____  _____
+    / ___/(_)___ ___  __  __/ /___ _/ /_(_)___  ____       / __ \/ ___/
+    \__ \/ / __ `__ \/ / / / / __ `/ __/ / __ \/ __ \     / / / / __ \ 
+    ___/ / / / / / / / /_/ / / /_/ / /_/ / /_/ / / / /    / /_/ / /_/ / 
+    /____/_/_/ /_/ /_/\__,_/_/\__,_/\__/_/\____/_/ /_/____/_____/\____/  
+                                                    /_____/              ''')
+
 
     DEFAULT_LOG_LEVEL = "info"
     LOG_LEVELS = {

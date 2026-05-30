@@ -1,27 +1,15 @@
 #!/usr/bin/env python
 
-
-
 from __future__ import print_function
-
-
 __version__ = '0.04'
-
-
-
 import logging, optparse, sys, os
-
 import colorlog
-
 _thismodule_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
 if not _thismodule_dir in sys.path:
     sys.path.insert(0, _thismodule_dir)
-
 import simulation_vba
 
 vm = simulation_vba.SimulationVBA()
-
-
 def parse(filename=None):
     if filename is None:
         print('Enter VBA code, end by a line containing only ".":')
@@ -46,9 +34,6 @@ def eval_expression(e):
 
 
 def main():
-    """
-    Main function, called when vbashell is run from the command line
-    """
     print ('vbashell %s - https://github.com/decalage2/ViperMonkey' % __version__)
     print ('THIS IS WORK IN PROGRESS - Check updates regularly!')
     print ('Please report any issue at https://github.com/decalage2/ViperMonkey/issues')
@@ -73,9 +58,6 @@ def main():
                             help="logging level debug/info/warning/error/critical (default=%default)")
 
     (options, args) = parser.parse_args()
-
-
-
     colorlog.basicConfig(level=LOG_LEVELS[options.loglevel], format='%(log_color)s%(levelname)-8s %(message)s')
 
     if options.parse_file:

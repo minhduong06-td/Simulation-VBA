@@ -1,24 +1,5 @@
 #!/usr/bin/env python
-
-
-"""
-SimulationVBA: VBA Grammar - Expressions
-
-SimulationVBA is a specialized engine to parse, analyze and interpret Microsoft
-VBA macros (Visual Basic for Applications), mainly for malware analysis.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
-
-
-
 __version__ = '0.03'
-
-
 import traceback
 import logging
 import re
@@ -52,9 +33,6 @@ import utils
 from logger import log
 
 def _vba_to_python_op(op, is_boolean):
-    """
-    Convert a VBA boolean operator to a Python boolean operator.
-    """
     op_map = {
         "Not" : "not",
         "And" : "and",
@@ -85,15 +63,8 @@ file_pointer = Suppress('#') + expression + NotAny("#")
 file_pointer.setParseAction(lambda t: "#" + str(t[0]))
 file_pointer_loose = (decimal_literal ^ lex_identifier)
 file_pointer_loose.setParseAction(lambda t: "#" + str(t[0]))
-
-
 missed_var_count = {}
 class SimpleNameExpression(VBA_Object):
-    """
-    Identifier referring to a variable within a VBA expression:
-    single identifier with no qualification or argument list
-    """
-
     def __init__(self, original_str, location, tokens, name=None):
         super(SimpleNameExpression, self).__init__(original_str, location, tokens)
         if (name is not None):
@@ -194,12 +165,6 @@ placeholder.setParseAction(lambda t: str(t[0]))
 
 
 class InstanceExpression(VBA_Object):
-    """
-    An instance expression consists of the keyword "Me".
-    It represents the current instance of the type defined by the
-    enclosing class module and has this type as its value type.
-    """
-
     def __init__(self, original_str, location, tokens):
         super(InstanceExpression, self).__init__(original_str, location, tokens)
         if (log.getEffectiveLevel() == logging.DEBUG):
@@ -211,15 +176,8 @@ class InstanceExpression(VBA_Object):
     def eval(self, context, params=None):
         raise NotImplementedError
 
-
-
-
 instance_expression = CaselessKeyword('Me').suppress()
 instance_expression.setParseAction(InstanceExpression)
-
-
-
-
 
 class MemberAccessExpression(VBA_Object):
     """
@@ -258,11 +216,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _to_python_handle_listbox_list(self, context, indent):
-        """
-        Handle List() object method calls like foo.List(bar).
-        foo is (currently) a ListBox object.
-        """
-
         func = self.rhs
         if (isinstance(func, list)):
             func = func[-1]
@@ -287,10 +240,6 @@ class MemberAccessExpression(VBA_Object):
         return r
         
     def _get_with_prefix_value(self, context):
-        """
-        Get the value of the With prefix. None is returned if there is no
-        With prefix.
-        """
         with_value = None
         if ((context.with_prefix_raw is not None) and
             (context.contains(str(context.with_prefix_raw)))):
@@ -302,11 +251,6 @@ class MemberAccessExpression(VBA_Object):
         return with_value
     
     def _to_python_handle_add(self, context, indent):
-        """
-        Handle Add() object method calls like foo.Add(bar, baz). 
-        foo is (currently) a Scripting.Dictionary object.
-        """
-
         with_dict = self._get_with_prefix_value(context)
         if ((with_dict is None) or (not isinstance(with_dict, dict))):
             return None
@@ -326,11 +270,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _convert_nested_methods_to_func_call(self, context):
-        """
-        Given a member access expression like foo(1).bar(2).baz(3)
-        return (conceptually) baz(3, bar(2, foo(1))).
-        """
-
         import vba_library
         
         obj_stack = []
@@ -375,11 +314,6 @@ class MemberAccessExpression(VBA_Object):
         return res_func
         
     def _to_python_nested_methods(self, context, indent):
-        """
-        Given a member access expression like foo(1).bar(2).baz(3)
-        return (conceptually) baz(3, bar(2, foo(1))), but in Python.
-        """
-            
         res_func = self._convert_nested_methods_to_func_call(context)
         if (res_func is None):
             return None
@@ -387,9 +321,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _to_python_handle_regex(self, context, indent):
-        """Handle RegEx() object method calls like Replace() and Test().
-
-        """
         if (len(self.rhs) == 0):
             return None
 
@@ -482,10 +413,6 @@ class MemberAccessExpression(VBA_Object):
         return ""
     
     def _handle_indexed_pages_access(self, context):
-        """
-        Handle getting the caption of a Page object referenced via index.
-        """
-
         page_pat = r".+\.Pages\('(\d+)'\)\.Caption"
         index = re.findall(page_pat, str(self))
         if (len(index) == 0):
@@ -498,10 +425,6 @@ class MemberAccessExpression(VBA_Object):
         return None
     
     def _handle_table_cell(self, context):
-        """
-        Handle reading a value from a table cell.
-        """
-
         pat = r"\w+\.Tables\(\s*'(\w+)'\s*\)\.Cell\(\s*'(\w+)\s*,\s*(\w+)'\s*\).*"
         indices = re.findall(pat, str(self))
         if (len(indices) == 0):
@@ -576,10 +499,6 @@ class MemberAccessExpression(VBA_Object):
         return cell
     
     def _handle_paragraphs(self, context):
-        """
-        Handle references to the .Paragraphs field of the current doc.
-        """
-
         if (str(self).lower().endswith(".paragraphs")):
             return context.get("ActiveDocument.Paragraphs".lower())
 
@@ -593,10 +512,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_comments(self, context):
-        """
-        Handle references to the .Comments field of the current doc.
-        """
-
         me_str = str(self)
         if (".comments" not in me_str.lower()):
             return None
@@ -613,10 +528,8 @@ class MemberAccessExpression(VBA_Object):
                 log.debug("No comment index found.")
             return None
 
-
         index = None
         try:
-
             obj = expression.parseString(ids[0], parseAll=True)[0]
             
             index = obj
@@ -640,23 +553,15 @@ class MemberAccessExpression(VBA_Object):
         return comments[index]
             
     def _handle_count(self, context, curr_item):
-        """
-        Handle references to the .Count field of the current item.
-        """
         if ((".count" in str(self).lower()) and (isinstance(curr_item, list))):
             return len(curr_item)
 
     def _handle_item(self, context, curr_item):
-        """
-        Handle accessing a list item.
-        """
-
         if (not isinstance(curr_item, list)):
             return None
 
         if (".item(" not in str(self).lower()):
             return None
-
         tmp_rhs = self.rhs
         if (isinstance(tmp_rhs, list) and (len(tmp_rhs) > 0)):
             tmp_rhs = tmp_rhs[0]
@@ -672,17 +577,10 @@ class MemberAccessExpression(VBA_Object):
         return curr_item[index]
         
     def _handle_oslanguage(self, context):
-        """
-        Handle references to the OSlanguage field.
-        """
         if (str(self).lower().endswith(".oslanguage")):
             return context.get("oslanguage")
     
     def _handle_application_run(self, context):
-        """
-        Handle functions called with Application.Run()
-        """
-
         if ((not str(self).startswith("Application.Run(")) and
             (not str(self).lower().startswith("thisdocument.run("))):
             return None
@@ -706,7 +604,6 @@ class MemberAccessExpression(VBA_Object):
             log.debug("Try indirect run of function '" + func_name + "'")
         r = "NULL"
         try:
-
             s = func_name
             while ((isinstance(s, str)) or (isinstance(s, SimpleNameExpression))):
                 s = context.get(str(s))
@@ -726,10 +623,6 @@ class MemberAccessExpression(VBA_Object):
             return None
 
     def _handle_set_clipboard(self, context):
-        """
-        Handle calls like objHTML.ParentWindow.clipboardData.setData(...).
-        """
-
         if (".setdata(" not in str(self).lower()):
             return None
         
@@ -747,10 +640,6 @@ class MemberAccessExpression(VBA_Object):
         return True
 
     def _handle_get_clipboard(self, context):
-        """
-        Handle calls like objHTML.ParentWindow.clipboardData.getData(...).
-        """
-
         if (".getdata(" not in str(self).lower()):
             return None
         
@@ -759,10 +648,6 @@ class MemberAccessExpression(VBA_Object):
         return None
         
     def _handle_docprops_read(self, context):
-        """
-        Handle data reads with ActiveDocument.BuiltInDocumentProperties(...).
-        """
-
         if ((not str(self).startswith("ActiveDocument.BuiltInDocumentProperties(")) and
             (not str(self).startswith("ThisDocument.BuiltInDocumentProperties("))):
             return None
@@ -778,10 +663,6 @@ class MemberAccessExpression(VBA_Object):
         return context.read_metadata_item(field_name)
 
     def _handle_control_read(self, context):
-        """
-        Handle data reads with StreamName.Controls(...).Value.
-        """
-
         pat = r".+\.Controls\(\s*'([^']+)'\s*\)(?:\.Value)?"
         my_text = str(self)
         if (re.match(pat, str(self)) is None):
@@ -796,9 +677,7 @@ class MemberAccessExpression(VBA_Object):
             list_vals = context.get(list_name)
         except KeyError:
             return None
-
         index = re.findall(pat, my_text)[0]
-
         try:
 
             obj = expression.parseString(index, parseAll=True)[0]
@@ -819,10 +698,6 @@ class MemberAccessExpression(VBA_Object):
         return None
 
     def _handle_docvars_read(self, context):
-        """
-        Handle data reads from a document variable.
-        """
-
         tmp = self.__repr__().lower()
         if (tmp.startswith("activedocument.variables(")):
             return eval_arg(self.__repr__(), context)
@@ -855,10 +730,6 @@ class MemberAccessExpression(VBA_Object):
         return val
 
     def _handle_text_file_read(self, context):
-        """
-        Handle OpenTextFile(...).ReadAll() calls.
-        """
-
         tmp = self.__repr__().lower()
         if (("opentextfile(" not in tmp) or ("readall" not in tmp)):
             return None
@@ -891,10 +762,6 @@ class MemberAccessExpression(VBA_Object):
                 return None
 
     def _handle_docvar_value(self, lhs, rhs):
-        """
-        Handle reading .Name and .Value fields from doc vars.
-        """
-        
         if ((isinstance(rhs, list)) and (len(rhs) > 0)):
             rhs = rhs[0]
         rhs = str(rhs).strip()
@@ -926,10 +793,6 @@ class MemberAccessExpression(VBA_Object):
         return None
 
     def _handle_file_close(self, context, lhs, rhs):
-        """
-        Handle close of file object foo like foo.Close().
-        """
-
         if ((isinstance(rhs, list)) and (len(rhs) > 0)):
             rhs = rhs[0]
         if (str(rhs) != "Close"):

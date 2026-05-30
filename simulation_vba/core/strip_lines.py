@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import logging
 import sys
 import re
@@ -17,6 +10,40 @@ import vba_context
 from random import randint
 
 debug_strip = False
+
+def _same_type_char(value, codepoint):
+    try:
+        text_type = unicode
+    except NameError:
+        text_type = str
+    if isinstance(value, text_type):
+        try:
+            return unichr(codepoint)
+        except NameError:
+            return chr(codepoint)
+    if ((sys.version_info[0] >= 3) and isinstance(value, (bytes, bytearray))):
+        return bytes(bytearray([codepoint]))
+    return chr(codepoint)
+
+def _same_type_empty(value):
+    if ((sys.version_info[0] >= 3) and isinstance(value, (bytes, bytearray))):
+        return b""
+    try:
+        if isinstance(value, unicode):
+            return u""
+    except NameError:
+        pass
+    return ""
+
+def _same_type_newline(value):
+    if ((sys.version_info[0] >= 3) and isinstance(value, (bytes, bytearray))):
+        return b"\n"
+    try:
+        if isinstance(value, unicode):
+            return u"\n"
+    except NameError:
+        pass
+    return "\n"
 
 def is_useless_dim(line):
     """
@@ -932,12 +959,13 @@ def fix_difficult_code(vba_code):
     Also change assignments like "a =+ 1 + 2" to "a = 1 + 2".
     """
 
-    vba_code = vba_code.replace(chr(0x85), "")
+    bad_85 = _same_type_char(vba_code, 0x85)
+    vba_code = vba_code.replace(bad_85, _same_type_empty(vba_code))
     
     if debug_strip:
         print "HERE: 1"
         print vba_code
-    vba_code = vba_code.replace("\n" + chr(0x85), "\n")
+    vba_code = vba_code.replace(_same_type_newline(vba_code) + bad_85, _same_type_newline(vba_code))
     vba_code = vba_code.replace("spli.tt.est", "splittest").replace("Mi.d", "Mid")
     vba_code = vba_code.replace("msgbox\"", "msgbox \"")
     vba_code = fix_unhandled_array_assigns(vba_code)
@@ -1522,10 +1550,13 @@ def fix_vba_code(vba_code):
     if debug_strip:
         print "FIX_VBA_CODE: 13"
         print vba_code
-    if (vba_code.count('\x0b') > 20):
-        vba_code = vba_code.replace('\x0b', '')
-    if (vba_code.count('\x88') > 20):
-        vba_code = vba_code.replace('\x88', '')
+    bad_0b = _same_type_char(vba_code, 0x0b)
+    bad_88 = _same_type_char(vba_code, 0x88)
+    empty = _same_type_empty(vba_code)
+    if (vba_code.count(bad_0b) > 20):
+        vba_code = vba_code.replace(bad_0b, empty)
+    if (vba_code.count(bad_88) > 20):
+        vba_code = vba_code.replace(bad_88, empty)
 
     if debug_strip:
         print "FIX_VBA_CODE: 14"

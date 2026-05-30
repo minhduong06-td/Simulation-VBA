@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-
-
 import sys
 import os
 import signal
@@ -21,15 +19,6 @@ HOST = "127.0.0.1"
 PORT = 2002
 
 def strip_unprintable(the_str):
-    """Strip out unprinatble chars from a string.
-
-    @param the_str (str) The string to strip.
-
-    @return (str) The given string with unprintable chars stripped
-    out.
-
-    """
-    
     r = the_str
     if ((isinstance(r, str)) or (not isinstance(r, bytes))):
         r = ''.join(filter(lambda x:x in string.printable, r))
@@ -43,15 +32,6 @@ def strip_unprintable(the_str):
     return r
 
 def to_str(s):
-    """
-    Convert a bytes like object to a str.
-
-    param s (bytes) The string to convert to str. If this is already str
-    the original string will be returned.
-
-    @return (str) s as a str.
-    """
-
     if (isinstance(s, bytes)):
         try:
             return s.decode()
@@ -60,13 +40,6 @@ def to_str(s):
     return s
 
 def is_excel_file(maldoc):
-    """Check to see if the given file is an Excel file.
-
-    @param maldoc (str) The name of the file to check.
-
-    @return (bool) True if the file is an Excel file, False if not.
-
-    """
     typ = subprocess.check_output(["file", maldoc])
     if ((b"Excel" in typ) or (b"Microsoft OOXML" in typ)):
         return True
@@ -74,15 +47,7 @@ def is_excel_file(maldoc):
     return (b"vnd.ms-excel" in typ)
 
 def wait_for_uno_api():
-    """Sleeps until the libreoffice UNO api is available by the headless
-    libreoffice process. Takes a bit to spin up even after the OS
-    reports the process as running. Tries 3 times before giving up and
-    throwing an Exception.
-
-    """
-
     tries = 0
-
     while tries < 3:
         try:
             connect(Socket(HOST, PORT))
@@ -94,13 +59,6 @@ def wait_for_uno_api():
     raise Exception("libreoffice UNO API failed to start")
 
 def get_office_proc():
-    """Returns the process info for the headless LibreOffice
-    process. None if it's not running
-
-    @return (psutil.Process) The LibreOffice process if found, None if not found.
-
-    """
-
     for proc in psutil.process_iter():
         try:
             pinfo = proc.as_dict(attrs=['pid', 'name', 'username'])
@@ -112,20 +70,9 @@ def get_office_proc():
     return None
 
 def is_office_running():
-    """Check to see if the headless LibreOffice process is running.
-
-    @return (bool) True if running False otherwise
-
-    """
-
     return True if get_office_proc() else False
 
 def run_soffice():
-    """Start the headless, UNO supporting, LibreOffice process to access
-    the API, if it is not already running.
-
-    """
-
     if not is_office_running():
 
         cmd = "/usr/lib/libreoffice/program/soffice.bin --headless --invisible " + \
@@ -136,24 +83,11 @@ def run_soffice():
         wait_for_uno_api()
 
 def get_component(fname, context):
-    """Load the object for the Excel spreadsheet.
-
-    @param fname (str) The name of the Excel file.
-
-    @param context (??) The UNO object connected to the local LibreOffice server.
-
-    @return (??) UNO LibreOffice Calc object representing the loaded
-    Excel file.
-
-    """
     url = convert_path_to_url(fname)
     component = Calc(context, url)
     return component
 
 def fix_file_name(fname):
-    """
-    Replace non-printable ASCII characters in the given file name.
-    """
     r = ""
     for c in fname:
         if ((ord(c) < 48) or (ord(c) > 122)):
@@ -164,18 +98,6 @@ def fix_file_name(fname):
     return r
 
 def convert_csv(fname):
-    """Convert all of the sheets in a given Excel spreadsheet to CSV
-    files. Also get the name of the currently active sheet.
-
-    @param fname (str) The name of the Excel file.
-    
-    @return (list) A list where the 1st element is the name of the
-    currently active sheet ("NO_ACTIVE_SHEET" if no sheets are active)
-    and the rest of the elements are the names (str) of the CSV sheet
-    files.
-
-    """
-
     if (not is_excel_file(fname)):
 
         return []

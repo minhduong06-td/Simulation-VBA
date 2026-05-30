@@ -43,7 +43,6 @@ except Exception:
 
 
 if REGEX:
-
     CHR = regex.compile(r'Chr\((?P<op>\d+)(\s+Xor\s+(?P<op>\d+))*\)', regex.IGNORECASE)
     STRING = regex.compile('(".*?"|\'.*?.\')')
 
@@ -56,17 +55,7 @@ if REGEX:
         (\s*?(?P=var)\s*=\s*(?P=var)\s+&\s+(?P<entry>.*?)[\r\n])+     # variable = variable & *
     ''', regex.VERBOSE)
 
-
     def _replace_code(code, replacements):
-        """Replaces code with new code.
-
-        @param code (str) The code to replace.
-
-        @param replacements (list) List of tuples containing (start,
-        end, replacement).
-
-        @return (str) The modified code.
-        """
         new_code = ''
         index = 0
         for start, end, code_string in sorted(replacements):
@@ -77,12 +66,6 @@ if REGEX:
 
 
     def _replace_var_runs(code):
-        """Replace long variable runs.
-
-        @param code (str) The code to replace.
-
-        @return (str) The modified code.
-        """
         code_replacements = []
         for match in VAR_RUN.finditer(code):
             code_string = '{var} = {value}{newline}'.format(
@@ -96,12 +79,6 @@ if REGEX:
 
 
     def _replace_concat_runs(code):
-        """Replace long chr runs.
-
-        @param code (str) The code to replace.
-
-        @return (str) The modified code.
-        """
         code_replacements = []
         for match in CONCAT_RUN.finditer(code):
             code_string = ''
@@ -119,13 +96,6 @@ if REGEX:
 
 
 def deobfuscate(code):
-    """Deobfuscates VBA code.
-
-    @param code (str) Obfuscated VBA code.
-
-    @return (str) Deobfuscated code.
-
-    """
     code = vba_collapse_long_lines(code)
     if REGEX:
         code = _replace_var_runs(code)

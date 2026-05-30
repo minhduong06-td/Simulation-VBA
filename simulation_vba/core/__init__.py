@@ -1,30 +1,14 @@
 #!/usr/bin/env python
-
-
-
 from __future__ import print_function
-
-
 __version__ = '0.04'
-
-
-
-
-
-
 import sys
 import logging
 import string
-
 from pyparsing import *
-
 import prettytable
-
 import unidecode
 import string
-
 import subprocess
-
 from logger import log
 from procedures import Function
 from procedures import Sub
@@ -38,12 +22,6 @@ from meta import FakeMeta
 
 
 def list_startswith(_list, lstart):
-    """
-    Check if a list (_list) starts with all the items from another list (lstart)
-    :param _list: list
-    :param lstart: list
-    :return: bool, True if _list starts with all the items of lstart.
-    """
     if _list is None:
         return False
     lenlist = len(_list)
@@ -63,10 +41,6 @@ from vba_library import *
 from stubbed_engine import StubbedEngine
 
 def pull_urls_excel_sheets(workbook):
-    """
-    Pull URLs from cells in a given ExcelBook object.
-    """
-
     if (workbook is None):
         return []
 
@@ -93,10 +67,6 @@ def pull_urls_excel_sheets(workbook):
     return r
 
 def pull_b64_excel_sheets(workbook):
-    """
-    Pull bas64 blobs from cells in a given ExcelBook object.
-    """
-
     if (workbook is None):
         return []
 
@@ -212,9 +182,6 @@ class SimulationVBA(StubbedEngine):
         self.metadata = new_dat
         
     def add_compiled_module(self, m):
-        """
-        Add an already parsed and processed module.
-        """
         if (m is None):
             return
         self.modules.append(m)
@@ -269,11 +236,6 @@ class SimulationVBA(StubbedEngine):
             print(err)
 
     def add_module2(self, vba_code):
-        """
-        add VBA code for a module and parse it using the alternate line parser
-        :param vba_code: str, VBA code
-        :return: None
-        """
         vba_code = vba_collapse_long_lines(vba_code)
         self.lines = vba_code.splitlines(True)
         tokens = []
@@ -353,11 +315,6 @@ class SimulationVBA(StubbedEngine):
         return self.line_index-1, line, line_keywords
 
     def parse_block(self, end=['end', 'sub']):
-        """
-        Parse a block of statements, until reaching a line starting with the end string
-        :param end: string indicating the end of the block
-        :return: list of statements (excluding the last line matching end)
-        """
         statements = []
         line_index, line, line_keywords = self.parse_next_line()
         while not list_startswith(line_keywords, end):
@@ -375,10 +332,6 @@ class SimulationVBA(StubbedEngine):
         return statements
 
     def _get_external_funcs(self):
-        """
-        Get a list of external functions called in the macros.
-        """
-
         call_visitor = function_call_visitor()
         defn_visitor = function_defn_visitor()
         var_visitor = var_defn_visitor()
@@ -574,11 +527,6 @@ class SimulationVBA(StubbedEngine):
                 context.dump_all_files(autoclose=True)
                 
     def eval(self, expr):
-        """
-        Parse and evaluate a single VBA expression
-        :param expr: str, expression to be evaluated
-        :return: value of the evaluated expression
-        """
         context = Context(_globals=self.globals,
                           engine=self,
                           doc_vars=self.doc_vars,
@@ -591,10 +539,6 @@ class SimulationVBA(StubbedEngine):
         return value
 
     def dump_actions(self):
-        """
-        return a table of all actions recorded by trace(), as a prettytable object
-        that can be printed or reused.
-        """
         t = prettytable.PrettyTable(('Action', 'Parameters', 'Description'))
         t.align = 'l'
         t.max_width['Action'] = 20
@@ -611,14 +555,6 @@ class SimulationVBA(StubbedEngine):
         return t
 
 def scan_expressions(vba_code):
-    """
-    Scan VBA code to extract constant VBA expressions, i.e. expressions
-    that can be evaluated as a constant value. Iterate over these expressions,
-    yield the expression and its evaluated value as a tuple.
-
-    :param vba_code: str, VBA source code
-    :return: iterator, yield (expression, evaluated value)
-    """
     context = Context()
     for m in expr_const.scanString(vba_code):
         e = m[0][0]
