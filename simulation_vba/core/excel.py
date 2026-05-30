@@ -1,8 +1,3 @@
-"""@package excel
-Partial implementation of xlrd.book object interface and some Excel
-functions.
-
-"""
 
 # pylint: disable=pointless-string-statement
 """
@@ -16,7 +11,6 @@ Project Repository:
 https://github.com/decalage2/ViperMonkey
 """
 
-# === LICENSE ==================================================================
 
 
 __version__ = '0.03'

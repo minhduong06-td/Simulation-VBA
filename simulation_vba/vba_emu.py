@@ -1,18 +1,5 @@
 #!/usr/bin/env pypy
 
-"""@package simulation_vba
-the simulation_vba command line and programatic interface. The top level
-function for using simulation_vba programatically is process_file().
-
-simulation_vba is a specialized engine to parse, analyze and interpret Microsoft
-VBA macros (Visual Basic for Applications), mainly for malware analysis.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
 
 from __future__ import print_function
 
@@ -56,7 +43,6 @@ from core.logger import log
 from core.logger import CappedFileHandler
 from logging import FileHandler
 
-#=== LICENSE ==================================================================
 
 
 
@@ -903,7 +889,6 @@ def main():
         sys.exit(0)
     
     if len(args) == 0:
-        safe_print(__doc__)
         parser.print_help()
         sys.exit(0)
 
@@ -963,4 +948,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

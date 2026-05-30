@@ -1,6 +1,3 @@
-"""@package read_ole_fields
-Read in data values from OLE items like shapes and text boxes.
-"""
 
 """
 SimulationVBA is a specialized engine to parse, analyze and interpret Microsoft
@@ -13,7 +10,6 @@ Project Repository:
 https://github.com/decalage2/ViperMonkey
 """
 
-#=== LICENSE ==================================================================
 
 
 import io

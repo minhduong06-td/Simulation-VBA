@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-"""@package export_doc_text 
-Export the document text/tables of a Word document via unotools.
-This is Python 3.
-"""
 
 import psutil
 import subprocess

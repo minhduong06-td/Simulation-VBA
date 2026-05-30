@@ -1,18 +1,3 @@
-"""@package deobfuscation
-
-Utility to help deobfuscate some VBA code before it gets processed.
-This can also be used by the user to help clean up code for analysis.
-
-WARNING: The regex below are used to find and replace common VBA obfuscated code
-with something similar. It makes no attempt at creating a complete/correct grammar.
-That is what simulation_vba is for.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
 
 import re
 from functools import reduce
@@ -55,7 +40,6 @@ except Exception:
         import logging
         log = logging.getLogger(__name__)
 
-# === LICENSE ==================================================================
 
 
 if REGEX:

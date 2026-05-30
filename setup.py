@@ -1,16 +1,4 @@
 #!/usr/bin/env python
-"""
-Installs SimulationVBA using pip, setuptools or distutils
-
-To install this package, run:
-    pip install -e .
-
-Or:
-    python setup.py install
-
-Installation using pip is recommended, to create scripts to run simulation_vba
-and vbashell from any directory.
-"""
 
 
 

@@ -1,17 +1,3 @@
-"""Helpers for resolving OOXML workbook artifacts used by VBA at runtime.
-
-This module intentionally implements a small, read-only subset of the
-Excel/Office object model.  It does not execute Office content.  It only reads
-static OOXML package parts so the emulator can resolve common expressions such
-as:
-
-    ActiveSheet.Shapes(2).AlternativeText
-    Application.Goto("NamedRange"): Selection
-    SomeUserForm.UnknownProperty
-
-The goal is to bridge values that are present in the document package but are
-not exposed by the lightweight VBA emulator object model.
-"""
 
 from __future__ import print_function
 

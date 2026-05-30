@@ -1,6 +1,3 @@
-"""@package curses_ascii
-Various utility functions for working with characters.
-"""
 
 def _ctoi(c):
     if type(c) == type(""):

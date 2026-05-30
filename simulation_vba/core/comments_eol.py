@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-"""@package comments_eol
-Parsing of VB comments and end of line markers.
-"""
 
 import logging
 from pyparsing import Literal, SkipTo, Combine, Suppress, Optional, CaselessKeyword, OneOrMore
@@ -22,7 +19,6 @@ Project Repository:
 https://github.com/decalage2/ViperMonkey
 """
 
-# === LICENSE ==================================================================
 
 
 

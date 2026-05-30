@@ -1,14 +1,4 @@
-"""
-SimulationVBA - Utility functions.
 
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
-
-#=== LICENSE ==================================================================
 
 
 import re

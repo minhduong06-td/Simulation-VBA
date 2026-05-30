@@ -1,19 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-SimulationVBA: VBA Library
 
-SimulationVBA is a specialized engine to parse, analyze and interpret Microsoft
-VBA macros (Visual Basic for Applications), mainly for malware analysis.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
-
-# === LICENSE ==================================================================
 
 
 __version__ = '0.02'
@@ -3094,8 +3081,6 @@ class Day(VbaLibraryFunc):
             txt = ''
         r = str(txt)
 
-        # It looks like this should pull the day out of a date string. See if we can
-        # handle a simple date string.
         f = r.split("/")
         if (len(f) == 3):
             try:
@@ -5076,4 +5061,3 @@ for name, value in (
         ('vbMinimizedNoFocus', 6),
 ):
     VBA_LIBRARY[name.lower()] = value
-

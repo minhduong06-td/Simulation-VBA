@@ -1,17 +1,4 @@
-"""
-SimulationVBA: Visitor for collecting the names declared variables.
 
-SimulationVBA is a specialized engine to parse, analyze and interpret Microsoft
-VBA macros (Visual Basic for Applications), mainly for malware analysis.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
-
-# === LICENSE ==================================================================
 
 
 from visitor import *

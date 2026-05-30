@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-"""@package expressions VBA Grammar - Expressions
-"""
 
 """
 SimulationVBA: VBA Grammar - Expressions
@@ -16,7 +14,6 @@ Project Repository:
 https://github.com/decalage2/ViperMonkey
 """
 
-# === LICENSE ==================================================================
 
 
 __version__ = '0.03'
