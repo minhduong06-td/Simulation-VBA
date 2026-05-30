@@ -465,3 +465,11 @@ def eval(vba_code, context=None, deobfuscate=False):
     context = context or Context()
     module = Module(vba_code, deobfuscate=deobfuscate)
     return module.eval(context)
+
+
+def deobfuscate_simulate(vba_code, entry_points=None):
+    """
+    Deobfuscate HTA/plain-text VBA or VBScript and safely simulate obvious
+    dangerous actions without writing artifacts or executing commands.
+    """
+    return deobfuscation.simulate_deobfuscation(vba_code, entry_points=entry_points)

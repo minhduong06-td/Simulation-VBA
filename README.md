@@ -12,6 +12,7 @@ The tool supports Office Open XML files such as `.xlsm`, `.docm`, `.pptm`, and r
 - Resolve Excel OOXML runtime context, including shapes, defined names, cells, selections, and UserForm strings.
 - Decode and reconstruct payloads that are split across multiple workbook locations.
 - Save dropped files and artifact archives to the directory where the command is run.
+- Safely deobfuscate and simulate HTA or plain-text VBScript with dangerous actions stubbed.
 - Run analysis inside a fresh Docker container with networking disabled.
 
 ## Requirements
@@ -138,11 +139,28 @@ simulation_vba -s --iocs --jit path/to/sample.xlsm
 
 Docker usage is recommended for suspicious files.
 
+## Safe HTA and Plain-Text Deobfuscation
+
+Use `--deob simulate` for HTA or plain-text VBA/VBScript input:
+
+```bash
+simulation_vba --deob simulate path/to/sample.hta
+```
+
+This mode extracts VBScript from HTA script blocks, deobfuscates simple string
+construction such as `Chr()` concatenation, prints the preserved source text, and
+logs dangerous actions as stubs. It does not execute shell commands, create
+objects outside the emulator, run subprocesses, write/delete files, access the
+network, or modify the registry.
+
 ## Safety Notes
 
 Analyze untrusted Office files only in an isolated environment.
 
 The Docker wrapper starts the container with networking disabled. This helps reduce risk during macro emulation, but it is not a replacement for a dedicated malware analysis environment.
+
+The `--deob simulate` path is non-destructive: unsupported statements remain in
+the printed source instead of being dropped during deobfuscation.
 
 Do not open suspicious Office documents directly in Microsoft Office on your main system.
 

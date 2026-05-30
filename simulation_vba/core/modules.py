@@ -48,6 +48,7 @@ import logging
 
 from comments_eol import *
 from procedures import *
+import procedures
 from statements import *
 import vba_context
 from function_defn_visitor import *

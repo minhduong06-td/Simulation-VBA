@@ -52,6 +52,7 @@ if _thismodule_dir not in sys.path:
 import core
 import core.excel as excel
 import core.read_ole_fields as read_ole_fields
+import core.deobfuscation as deobfuscation
 from core.utils import safe_print
 from core.utils import safe_str_convert
 
@@ -139,53 +140,27 @@ def get_vb_contents_from_hta(vba_code):
 
     """
 
-    # Fix some obfuscation if needed.
-    # '&#86;'
-    if (re.search(r"&#\d{1,3};", vba_code) is not None):
-        for i in range(0, 256):
-            curr_c = chr(i)
-            vba_code = vba_code.replace("&#" + str(i) + ";", curr_c)
-    
-    # Try several regexes to pull out HTA script contents.
-    hta_regexes = [r"<\s*[Ss][Cc][Rr][Ii][Pp][Tt]\s+(?:(?:[Ll][Aa][Nn][Gg][Uu][Aa][Gg][Ee])|(?:[Tt][Yy][Pp][Ee]))\s*=" + \
-                   r"\s*\"?.{0,10}[Vv][Bb][Ss][Cc][Rr][Ii][Pp][Tt]\"?\s*>(.{20,}?)</\s*[Ss][Cc][Rr][Ii][Pp][Tt][^>]*>",
-                   r"<\s*[Ss][Cc][Rr][Ii][Pp][Tt]\s+\%\d{1,10}\s*>(.{20,}?)</\s*[Ss][Cc][Rr][Ii][Pp][Tt][^>]*>",
-                   r"<\s*[Ss][Cc][Rr][Ii][Pp][Tt]\s+(?:(?:[Ll][Aa][Nn][Gg][Uu][Aa][Gg][Ee])|(?:[Tt][Yy][Pp][Ee]))\s*=" + \
-                   r"\s*\"?.{0,10}[Vv][Bb][Ss][Cc][Rr][Ii][Pp][Tt]\"?\s*>(.{20,})$"]
-    code = []
-    for pat in hta_regexes:
-        code = re.findall(pat, vba_code.strip(), re.DOTALL)
-        if (len(code) > 0):
-            #for c in code:
-            #    print("\n\n%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n")
-            #    print(c)
-            break
-    if (len(code) == 0):
-        return vba_code        
+    return deobfuscation.extract_vb_from_hta(vba_code)
 
-    # We have script block VB code.    
-    
-    # Return the code.    
-    r = ""
-    for b in code:
-        b = b.strip()
-        if ("</script>" in b.lower()):
-            b = b[:b.lower().index("</script>")]
-        if ("<![CDATA[" in b.upper()):
-            b = b[b.upper().index("<![CDATA[") + len("<![CDATA["):]
-            if ("]]>" in b[-10:]):
-                b = b[:b.rindex("]]>")]
 
-        # More tag stripping.
-        pat = r"<!\-\-(.+)/?/?\-\->"
-        tmp_b = re.findall(pat, b, re.DOTALL)
-        if (len(tmp_b) > 0):
-            b = tmp_b[0].strip()
-        if (b.endswith("//")):
-            b = b[:-2]
-                
-        r += b + "\n"
-    return r
+def deobfuscate_simulate_text(data, entry_points=None):
+    return deobfuscation.simulate_deobfuscation(data, entry_points=entry_points)
+
+
+def _process_deob_simulate_input(filename, data, entry_points=None):
+    if data is None:
+        with open(filename, 'rb') as input_file:
+            data = input_file.read()
+    deobfuscated, actions = deobfuscate_simulate_text(data, entry_points=entry_points)
+    safe_print(deobfuscated)
+    safe_print('')
+    safe_print('Recorded Stubbed Actions:')
+    if not actions:
+        safe_print('(none)')
+    else:
+        for action, params, description in actions:
+            safe_print('%s\t%s\t%s' % (action, params, description))
+    return deobfuscated, actions
     
 def parse_stream(subfilename,
                  stream_path=None,
@@ -1089,6 +1064,8 @@ def main():
                       help="output also to a file in addition to standard out")
     parser.add_option("-b", "--tee-bytes", action="store", default=0, type="int",
                       help="number of bytes to limit the tee'd log to")
+    parser.add_option("--deob", action="store", default=None, type="str",
+                      help="Deobfuscation mode. Use '--deob simulate' for safe HTA/plain-text deobfuscation.")
 
     (options, args) = parser.parse_args()
 
@@ -1117,7 +1094,15 @@ def main():
         # ignore directory names stored in zip files:
         if container and filename.endswith('/'):
             continue
-        if options.scan_expressions:
+        if options.deob is not None:
+            if options.deob.lower() != "simulate":
+                log.error("Unsupported --deob mode: " + str(options.deob))
+                sys.exit(2)
+            entry_points = None
+            if (options.entry_points is not None):
+                entry_points = options.entry_points.split(",")
+            _process_deob_simulate_input(filename, data, entry_points=entry_points)
+        elif options.scan_expressions:
             process_file_scanexpr(container, filename, data)
         else:
             entry_points = None
