@@ -12,25 +12,17 @@ Installation using pip is recommended, to create scripts to run simulation_vba
 and vbashell from any directory.
 """
 
-#--- CHANGELOG ----------------------------------------------------------------
-
-# 2016-12-14 v0.04 PL: - replaced scripts by entry points (issue #17)
-# 2018-08-17 v0.07 PL: - added required dependency unidecode
-# 2021-04-10 v1.0.3 PL: - changed oletools version to >=0.56.1
-
-#--- TODO ---------------------------------------------------------------------
 
 
-#--- IMPORTS ------------------------------------------------------------------
+
+
 
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
 
-# --- ENTRY POINTS ------------------------------------------------------------
 
-# Entry points to create convenient scripts automatically
 
 entry_points = {
     'console_scripts': [
@@ -49,17 +41,14 @@ setup(
         "contained in Microsoft Office files (Word, Excel, PowerPoint, "
         "Publisher, etc)."),
     install_requires=[
-        # oletools from 0.54.2 to 0.56 required cryptography, incompatible with PyPy. oletools 0.56.1+ does not require it anymore.
-        # Moreover, oletools 0.56.1+ does not trigger antivirus false positives anymore
         'oletools >= 0.56.1',
         "olefile",
         "prettytable",
         "colorlog",
         "colorama",
-        "pyparsing==2.2.0", # pyparsing 2.4.0 triggers a MemoryError on some samples (issue #58). pyparsing 2.3.0 parses some constructs differently and breaks things.
+        "pyparsing==2.2.0",
         "unidecode==1.2.0",
         "xlrd",
-        # regex is not installable on PyPy+Windows, so we only require it if the platform is not Windows or not PyPy:
         'regex; platform_python_implementation!="PyPy" or platform_system!="Windows"',
     ],
     packages=["simulation_vba", "simulation_vba.core"],

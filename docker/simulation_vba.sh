@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Run SimulationVBA in a fresh, disposable Docker container.
-# The container is created for exactly one analysis run and is removed on exit.
-# Local source is copied into the container on every run, so patched local code is used.
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 CALLER_DIR="$(pwd -P)"
@@ -92,7 +88,6 @@ echo "[*] Preparing clean runtime directories..."
 docker exec "$docker_id" sh -c 'rm -rf /opt/simulation_vba /root/input /root/output /root/.cache; mkdir -p /opt/simulation_vba /root/input /root/output'
 
 echo "[*] Copying local SimulationVBA source into container..."
-# Copy source without transient files or previous analysis artifacts.
 tar \
     --exclude='.git' \
     --exclude='__pycache__' \
@@ -105,9 +100,6 @@ tar \
     --exclude='*_artifacts.zip' \
     -C "$REPO_ROOT" -cf - . | docker exec -i "$docker_id" tar -xf - -C /opt/simulation_vba
 
-# Zip archives and some filesystems can drop executable bits. The original
-# Docker image runs vba_emu.py through its shebang, but we invoke it explicitly
-# below, so keep both modes working.
 docker exec "$docker_id" sh -c 'chmod +x /opt/simulation_vba/simulation_vba/vba_emu.py 2>/dev/null || true'
 
 echo "[*] Selecting Python runtime with SimulationVBA dependencies..."
@@ -142,7 +134,6 @@ entry=""
 json=""
 json_file=""
 
-# Entry point with no JSON file.
 if [[ $# -ge 3 && "${2:-}" == "-i" ]]; then
     entry="-i $3"
 elif [[ $# -eq 2 ]]; then
@@ -150,7 +141,6 @@ elif [[ $# -eq 2 ]]; then
     json_file="$2"
 fi
 
-# JSON file with entry point.
 if [[ $# -ge 4 && "${3:-}" == "-i" ]]; then
     entry="-i $4"
     json="-o $container_json"
@@ -164,11 +154,9 @@ if [[ -n "$json_file" ]]; then
     else
         json_out="$CALLER_DIR/$json_file"
     fi
-    # Avoid stale local results if this run fails before copying a report.
     rm -f "$json_out"
 fi
 
-# Clean stale host-side artifacts from previous runs.
 out_zip="$CALLER_DIR/${file_basename}_artifacts.zip"
 out_dir="$CALLER_DIR/${file_basename}_artifacts"
 rm -rf "$out_dir" "$out_zip"
@@ -187,7 +175,6 @@ if [[ -n "$json_file" ]]; then
     fi
 fi
 
-# Copy artifacts from container to host.
 has_artifacts=false
 if docker exec "$docker_id" sh -c "ls '$container_artifact_dir/' 2>/dev/null | head -n 1 | grep -q ."; then
     has_artifacts=true

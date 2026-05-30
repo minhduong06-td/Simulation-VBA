@@ -14,33 +14,10 @@ https://github.com/decalage2/ViperMonkey
 
 # === LICENSE ==================================================================
 
-# ViperMonkey is copyright (c) 2015-2016 Philippe Lagadec (http://www.decalage.info)
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-#
-#  * Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import operator
 
 __version__ = '0.03'
 
-# --- IMPORTS ------------------------------------------------------------------
 
 import logging
 import sys
@@ -63,7 +40,6 @@ def debug_repr(op, args):
     r += ")"
     return r
 
-# --- SUM: + OPERATOR --------------------------------------------------------
 
 class Sum(VBA_Object):
     """
@@ -72,36 +48,26 @@ class Sum(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Sum, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
         
-        # return the sum of all the arguments:
-        # (Note: sum() is not applicable here, because it does not work for strings)
-        # see https://docs.python.org/2/library/functions.html#reduce
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute sum (1) " + str(self.arg))
             r = reduce(lambda x, y: x + y, coerce_args(evaluated_args, preferred_type="int"))
             return r
         except (TypeError, ValueError):
-            # NOTE: In VB you are not supposed to be able to add integers and strings.
-            # However, there are maldocs that do this. If the strings are integer strings,
-            # integer addition is performed.
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('Impossible to sum arguments of different types. Try converting strings to common type.')
             try:
                 r = reduce(lambda x, y: int(x) + int(y), evaluated_args)
                 return r
             except (TypeError, ValueError):
-                # Punt and sum all arguments as strings.
                 if (log.getEffectiveLevel() == logging.DEBUG):
                     log.debug("Compute sum (2) " + str(self.arg))
                 r = reduce(lambda x, y: str(x) + str(y), coerce_args_to_str(evaluated_args))
@@ -117,7 +83,6 @@ class Sum(VBA_Object):
             if (not first):
                 r += " + "
             first = False
-            # Could be a str or an int, so hope for the best.
             r += to_python(arg, context, params=params)
         return "(" + r + ")"
         
@@ -125,7 +90,6 @@ class Sum(VBA_Object):
         return debug_repr("+", self.arg)
         return ' + '.join(map(repr, self.arg))
 
-# --- EQV --------------------------------------------------------
 
 class Eqv(VBA_Object):
     """
@@ -138,12 +102,10 @@ class Eqv(VBA_Object):
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the eqv of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute eqv " + str(self.arg))
@@ -158,7 +120,6 @@ class Eqv(VBA_Object):
     def __repr__(self):
         return ' Eqv '.join(map(repr, self.arg))
     
-# --- XOR --------------------------------------------------------
 
 class Xor(VBA_Object):
     """
@@ -167,25 +128,19 @@ class Xor(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Xor, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the xor of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute xor " + str(self.arg))
             return reduce(lambda x, y: x ^ y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) ^ int(y), evaluated_args)
             except Exception as e:
@@ -208,7 +163,6 @@ class Xor(VBA_Object):
             r += "coerce_to_int(" + to_python(arg, context, params=params) + ")"
         return "(" + r + ")"
     
-# --- AND --------------------------------------------------------
 
 class And(VBA_Object):
     """
@@ -231,19 +185,15 @@ class And(VBA_Object):
         
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the and of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute and " + str(self.arg))
             return reduce(lambda x, y: x & y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) & int(y), evaluated_args)
             except:
@@ -256,7 +206,6 @@ class And(VBA_Object):
     def __repr__(self):
         return ' & '.join(map(repr, self.arg))
 
-# --- OR --------------------------------------------------------
 
 class Or(VBA_Object):
     """
@@ -269,19 +218,15 @@ class Or(VBA_Object):
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the and of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute or " + str(self.arg))
             return reduce(lambda x, y: x | y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) | int(y), evaluated_args)
             except:
@@ -304,7 +249,6 @@ class Or(VBA_Object):
     def __repr__(self):
         return ' | '.join(map(repr, self.arg))
 
-# --- NOT --------------------------------------------------------
 
 class Not(VBA_Object):
     """
@@ -319,12 +263,10 @@ class Not(VBA_Object):
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the and of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute not " + str(self.arg))
@@ -343,7 +285,6 @@ class Not(VBA_Object):
     def __repr__(self):
         return "Not " + str(self.arg)
 
-# --- Negation --------------------------------------------------------
 
 class Neg(VBA_Object):
     """
@@ -362,12 +303,10 @@ class Neg(VBA_Object):
             
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the and of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute negate " + str(self.arg))
@@ -382,7 +321,6 @@ class Neg(VBA_Object):
     def __repr__(self):
         return "-" + str(self.arg)
     
-# --- SUBTRACTION: - OPERATOR ------------------------------------------------
 
 class Subtraction(VBA_Object):
     """
@@ -391,30 +329,23 @@ class Subtraction(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Subtraction, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the subtraction of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute subract " + str(self.arg))
             return reduce(lambda x, y: x - y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: coerce_to_int(x) - coerce_to_int(y), evaluated_args)
             except Exception as e:
 
-                # Are we doing math on character ordinals?
                 l1 = []
                 orig = evaluated_args
                 for v in orig:
@@ -425,19 +356,16 @@ class Subtraction(VBA_Object):
                         l1.append(ord(v))
                         continue
 
-                # Do we have something that we can do math on?
                 if (len(orig) != len(l1)):                
                     log.error('Impossible to subtract arguments of different types. ' + str(e))
                     return 0
 
-                # Try subtracting based on character ordinals.
                 return reduce(lambda x, y: int(x) - int(y), l1)
 
     def __repr__(self):
         return debug_repr("-", self.arg)
         return ' - '.join(map(repr, self.arg))
 
-# --- MULTIPLICATION: * OPERATOR ------------------------------------------------
 
 class Multiplication(VBA_Object):
     """
@@ -446,25 +374,19 @@ class Multiplication(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Multiplication, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the multiplication of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute mult " + str(self.arg))
             return reduce(lambda x, y: x * y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) * int(y), evaluated_args)
             except Exception as e:
@@ -475,7 +397,6 @@ class Multiplication(VBA_Object):
         return debug_repr("*", self.arg)
         return ' * '.join(map(repr, self.arg))
 
-# --- EXPONENTIATION: ^ OPERATOR ------------------------------------------------
 
 class Power(VBA_Object):
     """
@@ -484,25 +405,19 @@ class Power(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Power, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the exponentiation of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute pow " + str(self.arg))
             return reduce(lambda x, y: pow(x, y), coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: pow(int(x), int(y)), evaluated_args)
             except Exception as e:
@@ -517,7 +432,6 @@ class Power(VBA_Object):
         r = reduce(lambda x, y: "pow(coerce_to_num(" + to_python(x, context) + "), coerce_to_num(" + to_python(y, context) + "))", self.arg)
         return r
     
-# --- DIVISION: / OPERATOR ------------------------------------------------
 
 class Division(VBA_Object):
     """
@@ -526,31 +440,24 @@ class Division(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Division, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the division of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute div " + str(self.arg))
             return reduce(lambda x, y: x / y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) / int(y), evaluated_args)
             except Exception as e:
                 if (str(e).strip() != "division by zero"):
                     log.error('Impossible to divide arguments of different types. ' + str(e))
-                # TODO
                 return 0
         except ZeroDivisionError:
             context.set_error("Division by 0 error. Returning 'NULL'.")
@@ -569,17 +476,11 @@ class MultiOp(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(MultiOp, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list (e.g. [a,'*',b,'/',c,...])
-        self.arg = tokens[0][::2]  # Keep as helper  (kept singular to keep backwards compatibility)
+        self.arg = tokens[0][::2]
         self.operators = tokens[0][1::2]
 
     def to_python(self, context, params=None, indent=0):
 
-        # We are generating Python code for some string or numeric
-        # expression. Therefore any boolean operators we find in the
-        # expression are actually bitwise operators.
-        # Track that in the context.
         set_flag = False
         if (not context.in_bitwise_expression):
             context.in_bitwise_expression = True
@@ -595,8 +496,6 @@ class MultiOp(VBA_Object):
             else:
                 ret.append(' {} {!s}'.format(operator, "coerce_to_num(" + to_python(arg, context, params=params) + ")"))
 
-        # Out of the string/numeric expression. Might have actual boolean
-        # expressions now.
         if set_flag:
             context.in_bitwise_expression = False
 
@@ -604,16 +503,11 @@ class MultiOp(VBA_Object):
         
     def eval(self, context, params=None):
 
-        # We are emulating some string or numeric
-        # expression. Therefore any boolean operators we find in the
-        # expression are actually bitwise operators.
-        # Track that in the context.
         set_flag = False
         if (not context.in_bitwise_expression):
             context.in_bitwise_expression = True
             set_flag = True
         
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             if set_flag:
@@ -632,8 +526,6 @@ class MultiOp(VBA_Object):
                 context.in_bitwise_expression = False
             return ret
         except (TypeError, ValueError):
-            # Try converting strings to numbers.
-            # TODO: Need to handle floats in strings.
             try:
                 args = map(coerce_to_num, evaluated_args)
                 ret = args[0]
@@ -679,7 +571,6 @@ class AddSub(MultiOp):
     operator_map = {'+': operator.add, '-': operator.sub}
 
 
-# --- FLOOR DIVISION: \ OPERATOR ------------------------------------------------
 
 class FloorDivision(VBA_Object):
     """
@@ -688,31 +579,24 @@ class FloorDivision(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(FloorDivision, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the floor division of all the arguments:
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute floor div " + str(self.arg))
             return reduce(lambda x, y: x // y, coerce_args(evaluated_args, preferred_type="int"))
         except (TypeError, ValueError):
-            # Try converting strings to ints.
-            # TODO: Need to handle floats in strings.
             try:
                 return reduce(lambda x, y: int(x) // int(y), evaluated_args)
             except Exception as e:
                 if (str(e).strip() != "division by zero"):
                     log.error('Impossible to divide arguments of different types. ' + str(e))
-                # TODO
                 return 0
         except ZeroDivisionError as e:
             context.set_error(str(e))
@@ -731,7 +615,6 @@ class FloorDivision(VBA_Object):
             r += "coerce_to_num(" + to_python(arg, context, params=params) + ")"
         return "(" + r + ")"
     
-# --- CONCATENATION: & OPERATOR ----------------------------------------------
 
 class Concatenation(VBA_Object):
     """
@@ -740,29 +623,22 @@ class Concatenation(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Concatenation, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'&',b,'&',c,...]
         self.arg = tokens[0][::2]
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug('Concatenation: self.arg=%s' % repr(self.arg))
 
     def eval(self, context, params=None):
 
-        # Log that Concatenation.eval was called, with a preview of the operands.
         _preview = [str(a)[:80] for a in self.arg]
         log.info("Concatenation.eval called: %d operands, preview=%r", len(self.arg), _preview)
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the concatenation of all the arguments:
-        # TODO: handle non-string args
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug('Concatenation before eval: %r' % params)
 
-        # Log a preview of each resolved operand before joining.
         coerce_args_to_str_safe = coerce_args_to_str
         eval_params = coerce_args_to_str_safe(evaluated_args)
         for idx, (raw, conv) in enumerate(zip(evaluated_args, eval_params)):
@@ -787,7 +663,6 @@ class Concatenation(VBA_Object):
             return result
         except (TypeError, ValueError) as e:
             log.exception('Impossible to concatenate non-string arguments. ' + str(e))
-            # TODO
             return ''
 
     def __repr__(self):
@@ -804,7 +679,6 @@ class Concatenation(VBA_Object):
             r += "coerce_to_str(" + to_python(arg, context, params=params) + ", zero_is_null=True)"
         return "(" + r + ")"
 
-# --- MOD OPERATOR -----------------------------------------------------------
 
 class Mod(VBA_Object):
     """
@@ -813,19 +687,14 @@ class Mod(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Mod, self).__init__(original_str, location, tokens)
-        # extract argument from the tokens:
-        # expected to be a tuple containing a list [a,'mod',b,'mod',c,...]
         self.arg = tokens[0][::2]
 
     def eval(self, context, params=None):
 
-        # The wildcard for matching propagates through operations.
         evaluated_args = eval_args(self.arg, context)
         if ((isinstance(evaluated_args, Iterable)) and ("**MATCH ANY**" in evaluated_args)):
             return "**MATCH ANY**"
 
-        # return the sum of all the arguments:
-        # see https://docs.python.org/2/library/functions.html#reduce
         try:
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug("Compute mod " + str(self.arg))

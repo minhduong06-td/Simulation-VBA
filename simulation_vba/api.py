@@ -13,36 +13,12 @@ https://github.com/decalage2/ViperMonkey
 
 #=== LICENSE ==================================================================
 
-# ViperMonkey is copyright (c) 2015-2019 Philippe Lagadec (http://www.decalage.info)
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-#
-#  * Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import collections
 import inspect
 
 import pyparsing
 
-# Enable PackRat for better performance:
-# (see https://pythonhosted.org/pyparsing/pyparsing.ParserElement-class.html#enablePackrat)
 pyparsing.ParserElement.enablePackrat(cache_size_limit=10000000)
 
 from simulation_vba.core import deobfuscation
@@ -50,9 +26,6 @@ from simulation_vba.core.modules import *
 from simulation_vba.core.modules import Module as _Module
 from simulation_vba.core.vba_lines import vba_collapse_long_lines
 
-# NOTE: This MUST be imported because it registers function to the VBA_LIBRARY
-# dictionary in vba_context... don't ask me why.
-# Make sure we populate the VBA Library:
 from simulation_vba.core.vba_library import *
 
 
@@ -84,10 +57,8 @@ class SmartDict(dict):
 
     def __setitem__(self, key, value):
         """Automatically convert VbaLibraryFunc classes and lambdas before setting."""
-        # If a VBALibraryFunc class was passed in without being initialized, initialize it for them.
         if inspect.isclass(value) and issubclass(value, VbaLibraryFunc):
             value = value()
-        # If a function was passed in, wrap it in a VbaLibraryFunc class.
         elif callable(value):
             value = CustomVBALibraryFunc(value)
 
@@ -97,10 +68,6 @@ class SmartDict(dict):
 orig_Context = Context
 
 
-# MonkeyPatch Context with new features useful for a user
-# FIXME: We can't just update the main context with this stuff because we can't get
-#   the VbaLibraryFunc class to import there (which is needed by SmartDict).
-#   This is due the complexities caused by the abundant use of wildcard imports.
 class Context(orig_Context):
     """Overwrites SimulationVBA's original context to improve functionality:
 
@@ -120,12 +87,11 @@ class Context(orig_Context):
         :param log_funcs: List of function to report as an interestting function call.
         :param kwargs: Extra options passed back to original context.
         """
-        kwargs['engine'] = self  # Engine is self so that sub contexts also have report_action.
+        kwargs['engine'] = self
         super(Context, self).__init__(**kwargs)
         self._report_action = report_action
         self.actions = collections.defaultdict(list)
 
-        # Replace dictionaries with "smarter" ones.
         if not isinstance(self.globals, SmartDict):
             self.globals = SmartDict(self.globals)
         if not isinstance(self.locals, SmartDict):
@@ -157,10 +123,7 @@ class Context(orig_Context):
         self.set(key, value)
 
     def report_action(self, action, params=None, description=None, strip_null_bytes=False):
-        # NOTE: We are ignoring the strip_null_bytes parameter because that is a business logic detail.
-        # Record action in context
         self.actions[description].append((action, params))
-        # Perform any custom reporting.
         if self._report_action:
             self._report_action(action, params=params, description=description)
 
@@ -192,7 +155,6 @@ class CodeBlock(object):
         self._pp_spec = pp_spec
         if isinstance(lines, (bytes, str)):
             if deobfuscate:
-                # vba_collapse_long_lines() is done in deobfuscate()
                 lines = deobfuscation.deobfuscate(lines)
             else:
                 lines = vba_collapse_long_lines(lines)
@@ -211,7 +173,6 @@ class CodeBlock(object):
 
     def __getattr__(self, item):
         """Redirects anything that this class doesn't support back to the parsed obj."""
-        # Default to None so we can avoid having to tediously check the type beforehand.
         return getattr(self.obj, item, None)
 
     @property
@@ -225,14 +186,11 @@ class CodeBlock(object):
     @property
     def obj(self):
         """Returns VBA_Object or None on failure."""
-        # TODO: Support the option of running the full grammar?
         if not self._obj:
-            # Don't keep trying if we will fail.
             if self._parse_attempted:
                 return None
             try:
                 self._parse_attempted = True
-                # parse the first line using provided pp_spec
                 self._obj = self._pp_spec.parseString(self.lines[0], parseAll=self._parse_all)[0]
             except ParseException as err:
                 log.warn('*** PARSING ERROR (3) ***\n{}\n{}\n{}'.format(
@@ -252,29 +210,22 @@ class CodeBlock(object):
         Factory method for creating a CodeBlock from given line, line_keywords, and line generator
         to optional consume more lines.
         """
-        # TODO: Add the other block code types like For, Switch, Case and If statements?
         if line_keywords[0] == 'for':
             log.debug('FOR LOOP')
-            # NOTE: a for clause may be followed by ":" and statements on the same line
             lines = [line] + list(self._take_until(line_gen, ['next']))
             return CodeBlock(for_start, lines, parse_all=False)
         else:
-            # NOTE: Needed to add EOS to fix "Expected end of text" errors. (This should be on vba_line)
             return CodeBlock(vba_line + Optional(EOS).suppress(), line)
 
     def _iter_code_blocks(self):
         """Iterates internal codes blocks contained within this block."""
-        line_gen = iter(self.lines[1:-1])  # Iterate internal lines between the header and footer.
+        line_gen = iter(self.lines[1:-1])
         for line in line_gen:
-            # Parse line
             log.debug('Parsing line: {}'.format(line.rstrip()))
-            # extract first two keywords in lowercase, for quick matching
             line_keywords = line.lower().split(None, 2)
-            # ignore empty or comment lines
             if not line_keywords or line_keywords[0].startswith("'"):
                 continue
             if line_keywords[0] in ('public', 'private'):
-                # remove the public/private keyword:
                 line_keywords = line_keywords[1:]
 
             yield self._generate_code_block(line_gen, line, line_keywords)
@@ -303,11 +254,7 @@ class CodeBlock(object):
         if not self.obj:
             log.error('Unable to evaluate "{}" due to parse error.'.format(self))
             return None
-        # Before performing evaluation we need to parse all the internal code blocks
-        # and add any parsed statements.
         if hasattr(self.obj, 'statements') and not self.obj.statements:
-            # Even though we are passing our own class type it should still work because we have an
-            # eval() function. (Duck typing and all that)
             self.obj.statements = list(self.code_blocks)
         if hasattr(self.obj, 'eval'):
             return self.obj.eval(context=context, params=params)
@@ -327,7 +274,6 @@ class CodeBlock(object):
 class Module(CodeBlock):
     """The entry point for creating a VBA element for parsing/evaluation."""
 
-    # List of possible entry point functions.
     _ENTRY_POINTS = ['autoopen', 'document_open', 'autoclose',
                      'document_close', 'auto_open', 'autoexec',
                      'autoexit', 'document_beforeclose', 'workbook_open',
@@ -341,20 +287,12 @@ class Module(CodeBlock):
         :param deobfuscate: Whether to deobfuscate the code first which may speed up processing.
         """
 
-        # TODO: pp spec for module?
-        # Instead of having a pyparsing spec, we are going to manually create the
-        # parsed object from code blocks.
         super(Module, self).__init__(None, lines, deobfuscate=deobfuscate)
-        # We are also going to include a dummy first line so that _iter_code_blocks()
-        # doesn't skip the first line and last line.
         self.lines = [''] + self.lines + ['']
 
     def _generate_code_block(self, line_gen, line, line_keywords):
-        # Overwrite, because a module can contain subs, functions, and module header lines
-        # (VBA doesn't support nested functions/subs)
         if line_keywords[0] == 'attribute':
             return CodeBlock(header_statements_line, line)
-        # TODO: Is dim necesary here, or can it be found via vba_line?
         elif line_keywords[0] in ('option', 'dim', 'declare'):
             log.debug('DECLARATION LINE')
             return CodeBlock(declaration_statements_line, line)
@@ -387,7 +325,6 @@ class Module(CodeBlock):
     @property
     def entry_points(self):
         """Yields the entry points. (or None if not found)."""
-        # Since the module VBA_Object stores its elements with case intact we can't just hash.
         for name, sub in self.obj.subs.iteritems():
             if name.lower() in self._ENTRY_POINTS:
                 yield sub
@@ -399,27 +336,13 @@ class Module(CodeBlock):
         """Evaluates line(s) of code. Returns evaluated value (if appropriate) or None."""
         context = context or Context()
         self.load_context(context)
-        # Evaluate each loose code_block.
-        # NOTE: I would have used their obj.eval() with their "loose_lines" but it seems to not
-        #   detect a lot of things...
-        #   It's easier and more reliable to just count anything that is not a Function/Sub as loose.
-        #   (Also, it doesn't return anything)
         ret = None
         for code_block in self.code_blocks:
             if not isinstance(code_block, (Function, Sub)):
-                # TODO: We are going to consider variables as local when run like this
-                #   We should really have a "global" Context just be considered the parent Context object.
-                #   ... That would make better scoping emulation!
-                # context.global_scope = True  # must set inside encase the code changes it.
                 ret = code_block.eval(context, params)
-                # context.global_scope = False
         return ret
 
-    # TODO: Rename to declare()?
     def load_context(self, context):
-        # For a Module this will declare all subs and functions into the context.
-        # NOTE: I am not using obj.load_context() because the functions/subs
-        #   are set to locals instead of globals.
         context = context or Context()
         for name, _sub in self.obj.subs.items():
             log.debug('(3) storing sub "%s" in globals' % name)
@@ -441,13 +364,7 @@ class Module(CodeBlock):
     @property
     def obj(self):
         """Returns VBA_Object or None on failure."""
-        # Instead of using a pyparsing spec, we are going to manually
-        # call and grab all the components from code_blocks.
-        # (This helps to prevent calling eval() to every code block.)
         if not self._obj:
-            # TODO: Instead of blindly processing the obj for every code_block, only
-            # process Sub, Function, External_Function, Attribute_Statement, and Global_Var_Statement
-            # We need to replicate the initialization done in modules.Module but with code_blocks.
             self._obj = _Module(str(self), 0, list(self.code_blocks))
         return self._obj
 

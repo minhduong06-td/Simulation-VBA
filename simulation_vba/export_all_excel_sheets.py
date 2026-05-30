@@ -8,24 +8,19 @@ is Python 3.
 import sys
 import os
 import signal
-# sudo pip3 install psutil
 import psutil
 import subprocess
 import time
 import codecs
 import string
 
-# sudo pip3 install unotools
-# sudo apt install libreoffice-calc, python3-uno
 from unotools import Socket, connect
 from unotools.component.calc import Calc
 from unotools.unohelper import convert_path_to_url
 from unotools import ConnectionError
 
-# Please please let printing work.
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-# Connection information for LibreOffice.
 HOST = "127.0.0.1"
 PORT = 2002
 
@@ -39,19 +34,16 @@ def strip_unprintable(the_str):
 
     """
     
-    # Grr. Python2 unprintable stripping.
     r = the_str
     if ((isinstance(r, str)) or (not isinstance(r, bytes))):
         r = ''.join(filter(lambda x:x in string.printable, r))
         
-    # Grr. Python3 unprintable stripping.
     else:
         tmp_r = ""
         for char_code in filter(lambda x:chr(x) in string.printable, r):
             tmp_r += chr(char_code)
         r = tmp_r
 
-    # Done.
     return r
 
 def to_str(s):
@@ -64,7 +56,6 @@ def to_str(s):
     @return (str) s as a str.
     """
 
-    # Needs conversion?
     if (isinstance(s, bytes)):
         try:
             return s.decode()
@@ -86,7 +77,6 @@ def is_excel_file(maldoc):
     typ = subprocess.check_output(["exiftool", maldoc])
     return (b"vnd.ms-excel" in typ)
 
-###################################################################################################
 def wait_for_uno_api():
     """Sleeps until the libreoffice UNO api is available by the headless
     libreoffice process. Takes a bit to spin up even after the OS
@@ -107,7 +97,6 @@ def wait_for_uno_api():
 
     raise Exception("libreoffice UNO API failed to start")
 
-###################################################################################################
 def get_office_proc():
     """Returns the process info for the headless LibreOffice
     process. None if it's not running
@@ -126,7 +115,6 @@ def get_office_proc():
                 return pinfo
     return None
 
-###################################################################################################
 def is_office_running():
     """Check to see if the headless LibreOffice process is running.
 
@@ -136,17 +124,14 @@ def is_office_running():
 
     return True if get_office_proc() else False
 
-###################################################################################################
 def run_soffice():
     """Start the headless, UNO supporting, LibreOffice process to access
     the API, if it is not already running.
 
     """
 
-    # start the process
     if not is_office_running():
 
-        # soffice is not running. Run it in listening mode.
         cmd = "/usr/lib/libreoffice/program/soffice.bin --headless --invisible " + \
               "--nocrashreport --nodefault --nofirststartwizard --nologo " + \
               "--norestore " + \
@@ -195,25 +180,17 @@ def convert_csv(fname):
 
     """
 
-    # Make sure this is an Excel file.
     if (not is_excel_file(fname)):
 
-        # Not Excel, so no sheets.
         return []
 
-    # Run soffice in listening mode if it is not already running.
     run_soffice()
     
-    # TODO: Make sure soffice is running in listening mode.
-    # 
     
-    # Connect to the local LibreOffice server.
     context = connect(Socket(HOST, PORT))
 
-    # Load the Excel sheet.
     component = get_component(fname, context)
 
-    # Save the currently active sheet.
     r = []
     controller = component.getCurrentController()
     active_sheet = controller.ActiveSheet
@@ -222,14 +199,12 @@ def convert_csv(fname):
         active_sheet_name = fix_file_name(active_sheet.getName())
     r.append(active_sheet_name)
         
-    # Iterate on all the sheets in the spreadsheet.
     sheets = component.getSheets()
     enumeration = sheets.createEnumeration()
     pos = 0
     if sheets.getCount() > 0:
         while enumeration.hasMoreElements():
 
-            # Move to next sheet.
             sheet = enumeration.nextElement()
             name = sheet.getName()
             if (name.count(" ") > 10):
@@ -237,7 +212,6 @@ def convert_csv(fname):
             name = fix_file_name(name)
             controller.setActiveSheet(sheet)
 
-            # Set up the output URL.
             short_name = fname
             if (os.path.sep in short_name):
                 short_name = short_name[short_name.rindex(os.path.sep) + 1:]
@@ -247,21 +221,14 @@ def convert_csv(fname):
             r.append(outfilename)
             url = convert_path_to_url(outfilename)
 
-            # Export the CSV.
             component.store_to_url(url,'FilterName','Text - txt - csv (StarCalc)')
 
-    # Close the spreadsheet.
     component.close(True)
 
-    # clean up
     os.kill(get_office_proc()["pid"], signal.SIGTERM)
 
-    # Done.
     return r
 
-###########################################################################
-## Main Program
-###########################################################################
 if __name__ == '__main__':
     r = to_str(str(convert_csv(sys.argv[1])))
     print(r)

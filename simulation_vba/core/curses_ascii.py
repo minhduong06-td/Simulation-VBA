@@ -2,8 +2,6 @@
 Various utility functions for working with characters.
 """
 
-# Code borrowed from the Python standard library curses/ascii because it cannot
-# be imported on Windows:
 def _ctoi(c):
     if type(c) == type(""):
         return ord(c)
@@ -12,7 +10,7 @@ def _ctoi(c):
 
 def isalnum(c): return isalpha(c) or isdigit(c)
 def isalpha(c): return isupper(c) or islower(c)
-def isascii(c): return 0 <= _ctoi(c) <= 127          # ?
+def isascii(c): return 0 <= _ctoi(c) <= 127
 def isblank(c): return _ctoi(c) in (9, 32)
 def iscntrl(c): return 0 <= _ctoi(c) <= 31 or _ctoi(c) == 127
 def isdigit(c): return 48 <= _ctoi(c) <= 57

@@ -17,13 +17,10 @@ https://github.com/decalage2/ViperMonkey
 import re
 from functools import reduce
 
-# attempt to import regex if it's installed, otherwise it will be ignored
-# (this is because regex does not work on PyPy2 on Windows)
 try:
     import regex
     REGEX = True
 except ImportError:
-    # TODO: it would be good to log a warning
     REGEX = False
 
 from operator import xor
@@ -60,52 +57,16 @@ except Exception:
 
 # === LICENSE ==================================================================
 
-# ViperMonkey is copyright (c) 2015-2021 Philippe Lagadec (http://www.decalage.info)
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-#
-#  * Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Only do this if the regex library was successfully imported.
 if REGEX:
 
-    # language=PythonRegExp
     CHR = regex.compile(r'Chr\((?P<op>\d+)(\s+Xor\s+(?P<op>\d+))*\)', regex.IGNORECASE)
-    # language=PythonRegExp
     STRING = regex.compile('(".*?"|\'.*?.\')')
 
-    # Long run of Chr() and "string" concatenations.
-    # e.g:  Chr(71 Xor 18) & "2" & Chr(82 Xor 4) + "0" & Chr(70 Xor 15) & Chr(84 Xor 19)
-    # NOTE: We are allowing the use of "+" because it has the same affect as "&" when dealing
-    #     with just strings and order precedence shouldn't matter in this case.
-    # language=PythonRegExp
     CONCAT_RUN = regex.compile(
         r'(?P<entry>{chr}|{string})(\s*[&+]\s*(?P<entry>{chr}|{string}))*'.format(
             chr=CHR.pattern, string=STRING.pattern))
 
-    # Long run of variable concatination split among lines.
-    # e.g.
-    #  a = '1'
-    #  a = a & '2'
-    #  a = a & '3'
-    # language=PythonVerboseRegExp
     VAR_RUN = regex.compile(r'''
         (?P<var>[A-Za-z][A-Za-z0-9]*)\s*?=\s*(?P<entry>.*?)[\r\n]     # variable = *
         (\s*?(?P=var)\s*=\s*(?P=var)\s+&\s+(?P<entry>.*?)[\r\n])+     # variable = variable & *
@@ -143,7 +104,7 @@ if REGEX:
             code_string = '{var} = {value}{newline}'.format(
                 var=match.group('var'),
                 value=' & '.join(match.captures('entry')),
-                newline=match.group(0)[-1]  # match \r or \n as used in code.
+                newline=match.group(0)[-1]
             )
             code_replacements.append((match.start(), match.end(), code_string))
         return _replace_code(code, code_replacements)
@@ -164,7 +125,6 @@ if REGEX:
                 sub_match = CHR.match(entry)
                 if sub_match:
                     character = chr(reduce(xor, map(int, sub_match.captures('op'))))
-                    # Escape if its a quote.
                     if character == '"':
                         character = '""'
                     code_string += character

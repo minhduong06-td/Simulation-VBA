@@ -5,8 +5,6 @@ Export the document text/tables of a Word document via unotools.
 This is Python 3.
 """
 
-# sudo apt install python3-uno
-# sudo pip3 install psutil
 import psutil
 import subprocess
 import time
@@ -15,18 +13,14 @@ import json
 import os
 import signal
 
-# sudo pip3 install unotools
-# sudo apt install libreoffice-calc, python3-uno
 from unotools import Socket, connect
 from unotools.component.writer import Writer
 from unotools.unohelper import convert_path_to_url
 from unotools import ConnectionError
 
-# Connection information for LibreOffice.
 HOST = "127.0.0.1"
 PORT = 2002
 
-###################################################################################################
 def is_word_file(fname):
     """Check to see if the given file is a Word file.
 
@@ -40,7 +34,6 @@ def is_word_file(fname):
             (b"Word 2007+" in typ) or
             (b"Microsoft OOXML" in typ))
 
-###################################################################################################
 def wait_for_uno_api():
     """Sleeps until the libreoffice UNO api is available by the headless
     libreoffice process. Takes a bit to spin up even after the OS
@@ -61,7 +54,6 @@ def wait_for_uno_api():
 
     raise Exception("libreoffice UNO API failed to start")
 
-###################################################################################################
 def get_office_proc():
     """
     Returns the process info for the headless libreoffice process. None if it's not running
@@ -79,7 +71,6 @@ def get_office_proc():
                 return pinfo
     return None
 
-###################################################################################################
 def is_office_running():
     """Check to see if the headless LibreOffice process is running.
 
@@ -89,17 +80,14 @@ def is_office_running():
 
     return True if get_office_proc() else False
 
-###################################################################################################
 def run_soffice():
     """Start the headless, UNO supporting, LibreOffice process to access
     the API, if it is not already running.
 
     """
 
-    # start the process
     if not is_office_running():
 
-        # soffice is not running. Run it in listening mode.
         cmd = "/usr/lib/libreoffice/program/soffice.bin --headless --invisible " + \
               "--nocrashreport --nodefault --nofirststartwizard --nologo " + \
               "--norestore " + \
@@ -107,7 +95,6 @@ def run_soffice():
         subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         wait_for_uno_api()
 
-###################################################################################################
 def get_document(fname, connection):
     """Load the component containing the word document.
 
@@ -124,7 +111,6 @@ def get_document(fname, connection):
     document = Writer(connection, url)
     return document
 
-###################################################################################################
 def get_text(document):
     """Get the document text of a given Word file.
 
@@ -135,10 +121,8 @@ def get_text(document):
 
     """
 
-    # Get the text. Add a character at the start to simulate an embedded image at start.
     return "\x0c" + str(document.getText().getString())
 
-###################################################################################################
 def get_tables(document):
     """Get the text tables embedded in the Word doc.
 
@@ -161,9 +145,6 @@ def get_tables(document):
     return data_array_list
 
 
-###########################################################################
-## Main Program
-###########################################################################
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="export text from various properties in a Word "
                                          "document via the LibreOffice API")
@@ -176,19 +157,14 @@ if __name__ == '__main__':
                             help="path to the word doc")
     args = arg_parser.parse_args()
 
-    # Make sure this is a word file.
     if (not is_word_file(args.file)):
 
-        # Not Word, so no text.
         exit()
 
-    # Run soffice in listening mode if it is not already running.
     run_soffice()
 
-    # Connect to the local LibreOffice server.
     connection = connect(Socket(HOST, PORT))
 
-    # Load the document using the connection
     document = get_document(args.file, connection)
 
     if args.text:
@@ -196,6 +172,5 @@ if __name__ == '__main__':
     elif args.tables:
         print(json.dumps(get_tables(document)))
 
-    # clean up
     document.close(True)
     os.kill(get_office_proc()["pid"], signal.SIGTERM)

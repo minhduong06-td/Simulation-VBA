@@ -22,7 +22,6 @@ class FakeMeta(object):
 
 def get_metadata_exif(filename):
 
-    # Use exiftool to get the document metadata.
     output = None
     try:
         output = subprocess.check_output(["exiftool", filename])
@@ -30,14 +29,12 @@ def get_metadata_exif(filename):
         log.error("Cannot read metadata with exiftool. " + str(e))
         return {}
 
-    # Sanity check results.
     if (log.getEffectiveLevel() == logging.DEBUG):
         log.debug("exiftool output: '" + str(output) + "'")
     if (":" not in output):
         log.warning("Cannot read metadata with exiftool.")
         return {}
     
-    # Store the metadata in an object.
     lines = output.split("\n")
     r = FakeMeta()
     for line in lines:
@@ -48,5 +45,4 @@ def get_metadata_exif(filename):
         val = line[line.index(":") + 1:].strip().replace("...", "\r\n")
         setattr(r, field, val)
 
-    # Done.
     return r
