@@ -35,6 +35,7 @@ from pyparsing import *
 
 import vb_str
 from vba_context import VBA_LIBRARY
+import vba_context
 from vba_object import coerce_to_int
 from vba_object import eval_arg
 from vba_object import VbaLibraryFunc
@@ -1188,7 +1189,29 @@ class AddCode(Execute):
     pass
 
 class AddFromString(Execute):
-    pass
+    _idx = 0
+
+    def eval(self, context, params=None):
+        if params and len(params) > 0 and not isinstance(params[0], (VBA_Object, VbaLibraryFunc)):
+            code = str(params[0])
+            AddFromString._idx += 1
+            idx = AddFromString._idx
+            out_dir = vba_context.out_dir
+            if out_dir:
+                fname = os.path.join(out_dir, "addfromstring_%d.vba" % idx)
+                try:
+                    if not os.path.isdir(out_dir):
+                        os.makedirs(out_dir)
+                    raw = code.encode("utf-8", errors="replace")
+                    file_hash = sha256(raw).hexdigest()
+                    with open(fname, "wb") as f:
+                        f.write(raw)
+                    context.report_action("Dropped File Hash", file_hash,
+                                          'File Name: addfromstring_%d.vba' % idx)
+                    log.info("Saved AddFromString code (%d bytes) to %s", len(raw), fname)
+                except Exception as e:
+                    log.warning("Failed to save AddFromString code: %s", str(e))
+        return super(AddFromString, self).eval(context, params)
 
 class IsObject(VbaLibraryFunc):
 

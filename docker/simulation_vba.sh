@@ -112,6 +112,20 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
+        --deob)
+            # Consume --deob and its value; validate mode
+            if [[ $# -lt 2 ]]; then
+                echo "[!] --deob requires an argument (simulate)" >&2
+                exit 1
+            fi
+            deob_mode="$2"
+            shift 2
+            if [[ "$deob_mode" != "simulate" ]]; then
+                echo "[!] Unsupported --deob mode: $deob_mode. Supported: simulate" >&2
+                exit 1
+            fi
+            global_args+=("--deob" "simulate")
+            ;;
         --)
             shift
             global_args+=("$@")
