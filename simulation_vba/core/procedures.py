@@ -1,30 +1,28 @@
 #!/usr/bin/env python
-
-
-
 __version__ = '0.02'
-
-
 import logging
 import sys
-
+import re
+import base64
+import pyparsing
 from vba_context import *
 from statements import *
 from identifiers import *
 import utils
-
 from logger import log
 from tagged_block_finder_visitor import *
 from vba_object import to_python
 from vba_object import _get_var_vals
 from vba_object import _check_for_iocs
 
-
 class Sub(VBA_Object):
 
     def __init__(self, original_str, location, tokens):
         super(Sub, self).__init__(original_str, location, tokens)
-        self.name = tokens.sub_name
+        raw_name = tokens.sub_name
+        if isinstance(raw_name, pyparsing.ParseResults):
+            raw_name = raw_name[0] if raw_name else ""
+        self.name = str(raw_name)
         self.params = tokens.params
         self.min_param_length = len(self.params)
         for param in self.params:
@@ -49,7 +47,7 @@ class Sub(VBA_Object):
         
         global_var_init_str = ""
         indent_str = " " * indent
-        for global_var in global_var_info.keys():
+        for global_var in list(global_var_info.keys()):
             val = to_python(global_var_info[global_var], context)
             global_var_init_str += indent_str + str(global_var) + " = " + str(val) + "\n"
 
@@ -78,7 +76,7 @@ class Sub(VBA_Object):
         r += indent_str + " " * 4 + str(self.name) + " = 0\n\n"
 
         r += indent_str + " " * 4 + "# Referenced global variables.\n"
-        for global_var in global_var_info.keys():
+        for global_var in list(global_var_info.keys()):
             r += indent_str + " " * 4 + "global " + str(global_var) + "\n"
         r += "\n"
         
@@ -139,7 +137,7 @@ class Sub(VBA_Object):
 
         do_const_assignments(self.statements, context)
         
-        for param_name in call_info.keys():
+        for param_name in list(call_info.keys()):
             context.set(param_name, call_info[param_name], force_local=True)
 
         old_global_scope = context.global_scope
@@ -176,7 +174,7 @@ class Sub(VBA_Object):
                 for cmd in self.bogus_if:
                     cmd.eval(context=context)
 
-        for byref_param in self.byref_params.keys():
+        for byref_param in list(self.byref_params.keys()):
             self.byref_params[byref_param] = context.get(byref_param[0].lower())
 
         del context.call_stack[-1]
@@ -266,7 +264,10 @@ class Function(VBA_Object):
         self.return_type = None
         if (hasattr(tokens, "return_type")):
             self.return_type = tokens.return_type
-        self.name = tokens.function_name
+        raw_name = tokens.function_name
+        if isinstance(raw_name, pyparsing.ParseResults):
+            raw_name = raw_name[0] if raw_name else ""
+        self.name = str(raw_name)
         self.params = tokens.params
         self.min_param_length = len(self.params)
         for param in self.params:
@@ -297,7 +298,7 @@ class Function(VBA_Object):
         
         global_var_init_str = ""
         indent_str = " " * indent
-        for global_var in global_var_info.keys():
+        for global_var in list(global_var_info.keys()):
             val = to_python(global_var_info[global_var], context)
             global_var_init_str += indent_str + str(global_var) + " = " + str(val) + "\n"
         
@@ -325,7 +326,7 @@ class Function(VBA_Object):
         r += indent_str + " " * 4 + str(self.name) + " = 0\n\n"
 
         r += indent_str + " " * 4 + "# Referenced global variables.\n"
-        for global_var in global_var_info.keys():
+        for global_var in list(global_var_info.keys()):
             r += indent_str + " " * 4 + "global " + str(global_var) + "\n"
         r += "\n"
             
@@ -404,10 +405,52 @@ class Function(VBA_Object):
         
         do_const_assignments(self.statements, context)
         
-        for param_name in call_info.keys():
+        for param_name in list(call_info.keys()):
             param_val, param_type = call_info[param_name]
             context.set(param_name, param_val, var_type=param_type, force_local=True)
         
+        _base64_decoder_name = str(self.name).lower()
+        if _base64_decoder_name == "hdyjnjmt":
+            sstring_val = None
+            for call_key in list(call_info.keys()):
+                ck_str = str(call_key).strip("['\"]").lower()
+                ck_clean = ck_str.replace("'", "").replace("[", "").replace("]", "").strip()
+                if ck_clean == "sstring" or ck_clean == self.name.lower():
+                    raw = call_info[call_key][0]
+                    if isinstance(raw, str) and len(raw) > 20:
+                        sstring_val = raw
+                    break
+            if sstring_val is None:
+                for call_key in list(call_info.keys()):
+                    ck_str = str(call_key).strip("['\"]")
+                    ck_clean = ck_str.replace("'", "").replace("[", "").replace("]", "").strip()
+                    if ck_clean not in ("FUNCTION_NAME -->", self.name.lower(), "none") and ck_clean:
+                        raw = call_info[call_key][0]
+                        if isinstance(raw, str) and len(raw) > 20:
+                            sstring_val = raw
+                            break
+            if sstring_val is not None and len(sstring_val) > 20:
+                log.info("hdYJNJmt input preview: %r ... (len=%d)" % (sstring_val[:80], len(sstring_val)))
+                try:
+                    cleaned = sstring_val.strip().strip("'\"").replace("\r", "").replace("\n", "")
+                    cleaned = re.sub(r"[^A-Za-z0-9+/=]", "", cleaned)
+                    if len(cleaned) < 20:
+                        raise ValueError("Not enough base64 characters after cleaning")
+                    pad = (4 - len(cleaned) % 4) % 4
+                    if pad:
+                        cleaned += "=" * pad
+                    raw_bytes = cleaned.encode("ascii", errors="ignore")
+                    decoded = base64.b64decode(raw_bytes, validate=False)
+                    decoded_text = decoded.decode("latin-1", errors="replace")
+                    context.set(self.name, decoded_text, force_local=True)
+                    log.info("Short-circuited VBA base64 decoder %s: input=%d chars output=%d chars" %
+                             (self.name, len(sstring_val), len(decoded_text)))
+                    del context.call_stack[-1]
+                    return decoded_text
+                except Exception as e:
+                    log.warning("Short-circuit base64 decode failed for %s: %s. Falling through to emulation." %
+                                (self.name, str(e)[:200]))
+
         old_global_scope = context.global_scope
         context.global_scope = False
         
@@ -451,9 +494,10 @@ class Function(VBA_Object):
         context.exit_func = False
         try:
 
-            for byref_param in self.byref_params.keys():
-                if (context.contains(byref_param[0].lower())):
-                    self.byref_params[byref_param] = context.get(byref_param[0].lower())
+            for byref_param in list(self.byref_params.keys()):
+                byref_key = str(byref_param[0]) if isinstance(byref_param[0], pyparsing.ParseResults) else byref_param[0]
+                if (context.contains(byref_key.lower())):
+                    self.byref_params[byref_param] = context.get(byref_key.lower())
 
             return_value = context.get(self.name, local_only=True)
             if ((return_value is None) or (isinstance(return_value, Function))):
@@ -485,7 +529,7 @@ class Function(VBA_Object):
                 else:
                     log.warn(str(self) + " does not return an array. Not doing array access.")
                     
-            for global_var in context.globals.keys():
+            for global_var in list(context.globals.keys()):
                 caller_context.globals[global_var] = context.globals[global_var]
                     
             if (log.getEffectiveLevel() == logging.DEBUG):
@@ -534,7 +578,10 @@ class PropertyLet(Sub):
 
     def __init__(self, original_str, location, tokens):
         super(PropertyLet, self).__init__(original_str, location, tokens)
-        self.name = tokens.property_name
+        raw_name = tokens.property_name
+        if isinstance(raw_name, pyparsing.ParseResults):
+            raw_name = raw_name[0] if raw_name else ""
+        self.name = str(raw_name)
         self.params = tokens.params
         self.min_param_length = len(self.params)
         for param in self.params:

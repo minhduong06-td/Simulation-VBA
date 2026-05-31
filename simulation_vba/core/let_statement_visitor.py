@@ -1,12 +1,6 @@
-
-
-
 from visitor import *
 
 class let_statement_visitor(visitor):
-    """
-    Get all Let statements.
-    """
 
     def __init__(self, var_name=None):
         self.let_statements = set()

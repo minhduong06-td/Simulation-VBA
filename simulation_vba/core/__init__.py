@@ -1,5 +1,18 @@
 #!/usr/bin/env python
 from __future__ import print_function
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
+
 __version__ = '0.04'
 import sys
 import logging
@@ -18,6 +31,7 @@ from function_import_visitor import *
 from var_defn_visitor import *
 import filetype
 import read_ole_fields
+import vba_object
 from meta import FakeMeta
 
 
@@ -36,6 +50,7 @@ def list_startswith(_list, lstart):
 from vba_lines import *
 from modules import *
 
+import vba_library
 from vba_library import *
 
 from stubbed_engine import StubbedEngine
@@ -177,7 +192,7 @@ class SimulationVBA(StubbedEngine):
         new_dat = dat
         if (isinstance(dat, dict)):
             new_dat = FakeMeta()
-            for field in dat.keys():
+            for field in list(dat.keys()):
                 setattr(new_dat, str(field), dat[field])
         self.metadata = new_dat
         
@@ -185,7 +200,7 @@ class SimulationVBA(StubbedEngine):
         if (m is None):
             return
         self.modules.append(m)
-        for name, _sub in m.subs.items():
+        for name, _sub in list(m.subs.items()):
             if (name in self.globals):
                 old_sub = self.globals[name]
                 if (hasattr(old_sub, "statements")):
@@ -194,28 +209,28 @@ class SimulationVBA(StubbedEngine):
                         continue
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing sub "%s" in globals' % name)
-            self.globals[name.lower()] = _sub
+            self.globals[str(name).lower()] = _sub
             self.globals[name] = _sub
-        for name, _function in m.functions.items():
+        for name, _function in list(m.functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing function "%s" in globals' % name)
-            self.globals[name.lower()] = _function
+            self.globals[str(name).lower()] = _function
             self.globals[name] = _function
-        for name, _prop in m.functions.items():
+        for name, _prop in list(m.functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing property let "%s" in globals' % name)
-            self.globals[name.lower()] = _prop
+            self.globals[str(name).lower()] = _prop
             self.globals[name] = _prop
-        for name, _function in m.external_functions.items():
+        for name, _function in list(m.external_functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing external function "%s" in globals' % name)
-            self.globals[name.lower()] = _function
-            self.externals[name.lower()] = _function
-        for name, _var in m.global_vars.items():
+            self.globals[str(name).lower()] = _function
+            self.externals[str(name).lower()] = _function
+        for name, _var in list(m.global_vars.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing global var "%s" = %s in globals (1)' % (name, str(_var)))
             if (isinstance(name, str)):
-                self.globals[name.lower()] = _var
+                self.globals[str(name).lower()] = _var
             if (isinstance(name, list)):
                 self.globals[name[0].lower()] = _var
                 self.types[name[0].lower()] = name[1]
@@ -285,20 +300,20 @@ class SimulationVBA(StubbedEngine):
             self.line_index += 1
         m = Module(original_str=vba_code, location=0, tokens=tokens)
         self.modules.append(m)
-        for name, _sub in m.subs.items():
+        for name, _sub in list(m.subs.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(2) storing sub "%s" in globals' % name)
-            self.globals[name.lower()] = _sub
-        for name, _function in m.functions.items():
+            self.globals[str(name).lower()] = _sub
+        for name, _function in list(m.functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(2) storing function "%s" in globals' % name)
-            self.globals[name.lower()] = _function
-        for name, _function in m.external_functions.items():
+            self.globals[str(name).lower()] = _function
+        for name, _function in list(m.external_functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(2) storing external function "%s" in globals' % name)
-            self.globals[name.lower()] = _function
-            self.externals[name.lower()] = _function
-        for name, _var in m.global_vars.items():
+            self.globals[str(name).lower()] = _function
+            self.externals[str(name).lower()] = _function
+        for name, _var in list(m.global_vars.items()):
                 if (log.getEffectiveLevel() == logging.DEBUG):
                     log.debug('(2) storing global var "%s" in globals (2)' % name)
             
@@ -391,7 +406,7 @@ class SimulationVBA(StubbedEngine):
         for cell_b64_blob in cell_b64_blobs:
             context.save_intermediate_iocs(cell_b64_blob)
             
-        for func_name in self.externals.keys():
+        for func_name in list(self.externals.keys()):
             func = self.externals[func_name]
             context.dll_func_true_names[func.name] = func.alias_name
 
@@ -495,7 +510,7 @@ class SimulationVBA(StubbedEngine):
                 context.got_actions = tmp_context.got_actions
                 done_emulation = True
 
-        for name in self.globals.keys():
+        for name in list(self.globals.keys()):
 
             for suffix in self.callback_suffixes:
 
@@ -515,7 +530,7 @@ class SimulationVBA(StubbedEngine):
             log.warn("No entry points found. Using heuristics to find entry points...")
             
             zero_arg_subs = []
-            for name in self.globals.keys():
+            for name in list(self.globals.keys()):
                 item = self.globals[name]
                 if ((isinstance(item, Sub)) and (len(item.params) == 0)):
                     zero_arg_subs.append(item)

@@ -1,13 +1,7 @@
-
-
-
 from visitor import *
 from statements import *
 
 class tagged_block_finder_visitor(visitor):
-    """
-    Collect all the tagged block (labeled block) elements.
-    """
 
     def __init__(self):
         self.blocks = {}

@@ -16,7 +16,7 @@ def parse(filename=None):
         code = ''
         line = None
         while True:
-            line = raw_input()
+            line = input()
             if line == '.':
                 break
             code += line + '\n'
@@ -69,7 +69,7 @@ def main():
     while True:
         try:
             print("VBA> ", end='')
-            cmd = raw_input()
+            cmd = input()
 
             if cmd.startswith('exit'):
                 break

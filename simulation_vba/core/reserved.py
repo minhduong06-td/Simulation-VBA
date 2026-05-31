@@ -1,22 +1,9 @@
 #!/usr/bin/env python
-
-
-
 __version__ = '0.02'
-
-
 from pyparsing import *
-
 from logger import log
 from identifiers import *
-
-
 def caselessKeywordsList(keywords):
-    """
-    build a pyparsing parser from a list of caseless keywords
-
-    :param keywords: tuple or list of keyword names (strings)
-    """
     p = CaselessKeyword(keywords[0])
     for kw in keywords[1:]:
         p |= CaselessKeyword(kw)

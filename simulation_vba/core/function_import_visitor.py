@@ -1,13 +1,7 @@
-
-
-
 from visitor import *
 from procedures import *
 
 class function_import_visitor(visitor):
-    """
-    Collect the names and aliases of all functions imported from DLLs.
-    """
 
     def __init__(self):
         self.names = set()

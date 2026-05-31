@@ -1,22 +1,8 @@
-
-
-
-
-
-import os, sys
-
-_thismodule_dir = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
-_parent_dir = os.path.normpath(os.path.join(_thismodule_dir, '../..'))
-if _parent_dir not in sys.path:
-    sys.path.insert(0, _parent_dir)
-
-from simulation_vba.core import *
+from visitor import visitor
+import procedures
 
 
 class function_defn_visitor(visitor):
-    """
-    Collect the names of all locally declared functions.
-    """
 
     def __init__(self):
         self.funcs = set()

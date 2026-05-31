@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-
 import logging
 import subprocess
-
 from logger import log
-
 class FakeMeta(object):
     pass
 

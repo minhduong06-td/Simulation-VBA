@@ -1,9 +1,17 @@
-
-
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
 
 __version__ = '0.08'
-
-
 import logging
 import os
 from hashlib import sha256
@@ -20,14 +28,12 @@ import codecs
 import copy
 import struct
 from curses_ascii import isascii
+import pyparsing
 
 import vba_constants
 import utils
 
 def to_hex(s):
-    """
-    Convert a string to a VBA hex string.
-    """
 
     r = ""
     for c in str(s):
@@ -35,22 +41,12 @@ def to_hex(s):
     return r
 
 def is_procedure(vba_object):
-    """
-    Check if a VBA object is a procedure, e.g. a Sub or a Function.
-    This is implemented by checking if the object has a statements
-    attribute
-    :param vba_object: VBA_Object to be checked
-    :return: True if vba_object is a procedure, False otherwise
-    """
     if hasattr(vba_object, 'statements'):
         return True
     else:
         return False
 
 def add_shellcode_data(index, value, num_bytes):
-    """
-    Save injected shellcode data.
-    """
 
     if ((not isinstance(index, int)) or
         (not isinstance(value, int)) or
@@ -65,14 +61,11 @@ def add_shellcode_data(index, value, num_bytes):
     shellcode[index] = value
 
 def get_shellcode_data():
-    """
-    Get written shellcode bytes as a list.
-    """
 
     if (len(shellcode) == 0):
         return []
 
-    indices = shellcode.keys()
+    indices = list(shellcode.keys())
     indices.sort()
     last_i = None
     r = []
@@ -105,10 +98,6 @@ num_b64_iocs = 0
 shellcode = {}
 
 class Context(object):
-    """
-    a Context object contains the global and local named objects (variables, subs, functions)
-    used to evaluate VBA statements.
-    """
 
     def __init__(self,
                  _globals=None,
@@ -194,7 +183,7 @@ class Context(object):
             else:
                 self.globals = _globals
 
-            for var in _globals.keys():
+            for var in list(_globals.keys()):
                 self.save_intermediate_iocs(_globals[var])
                 
         elif context is not None:
@@ -245,7 +234,7 @@ class Context(object):
 
             self.doc_vars = doc_vars
 
-            for var in doc_vars.keys():
+            for var in list(doc_vars.keys()):
                 self.save_intermediate_iocs(doc_vars[var])
 
         elif context is not None:
@@ -282,10 +271,10 @@ class Context(object):
             globals_eq = (self.globals == other.globals)
             if (not globals_eq):
                 s1 = set()
-                for i in self.globals.items():
+                for i in list(self.globals.items()):
                     s1.add(str(i))
                 s2 = set()
-                for i in other.globals.items():
+                for i in list(other.globals.items()):
                     s2.add(str(i))
                 if (str(s1 ^ s2) == "set([])"):
                     globals_eq = True
@@ -324,17 +313,11 @@ class Context(object):
         return r
             
     def get_error_handler(self):
-        """
-        Get the onerror goto error handler.
-        """
         if (hasattr(self, "error_handler")):
             return self.error_handler
         return None
 
     def do_next_iter_on_error(self):
-        """
-        See if the error handler just calls Next to advance to next loop iteration.
-        """
 
         handler = self.get_error_handler()
         if (handler is None):
@@ -347,31 +330,18 @@ class Context(object):
         return (first_cmd == "Next")
     
     def have_error(self):
-        """
-        See if Visual Basic threw an error.
-        """
         return (hasattr(self, "got_error") and
                 self.got_error)
 
     def clear_error(self):
-        """
-        Clear out the error flag.
-        """
         self.got_error = False
         
     def must_handle_error(self):
-        """
-        Check to see if there was are error raised during emulation and we have
-        an error handler.
-        """
         return (self.have_error() and
                 hasattr(self, "error_handler") and
                 (self.error_handler is not None))
 
     def handle_error(self, params):
-        """
-        Run the current error handler (if there is one) if there is an error.
-        """
 
         if (self.must_handle_error()):
             log.warning("Running On Error error handler...")
@@ -381,52 +351,33 @@ class Context(object):
             self.got_error = False
 
     def set_error(self, reason):
-        """
-        Set that a VBA error has occurred.
-        """
 
         self.got_error = True
         self.increase_general_errors()
         log.error("A VB error has occurred. Reason: " + str(reason))
 
     def report_general_error(self, reason):
-        """
-        Report and track general SimulationVBA errors. Note that these may not just be
-        VBA errors.
-        """
         self.num_general_errors += 1
         log.error(reason)
 
     def clear_general_errors(self):
-        """
-        Clear the count of general errors.
-        """
         self.num_general_errors = 0
 
     def get_general_errors(self):
-        """
-        Get the number of reported general errors.
-        """
         return self.num_general_errors
 
     def increase_general_errors(self):
-        """
-        Add one to the number of reported general errors.
-        """
         self.num_general_errors += 1
         
     def get_true_name(self, name):
-        """
-        Get the true name of an aliased function imported from a DLL.
-        """
         if (name in self.dll_func_true_names):
             return self.dll_func_true_names[name]
         return None
 
     def delete(self, name):
-        """
-        Delete a variable from the context.
-        """
+
+        if isinstance(name, pyparsing.ParseResults):
+            name = name[0] if name else ""
 
         if (not self.contains(name)):
             return self
@@ -439,13 +390,10 @@ class Context(object):
         return self
 
     def get_interesting_fileid(self):
-        """
-        Pick an 'interesting' looking open file and return its ID.
-        """
 
         longest = ""
         cdrive = None
-        for file_id in self.open_files.keys():
+        for file_id in list(self.open_files.keys()):
             if ((self.last_saved_file is not None) and (str(file_id).lower() == self.last_saved_file.lower())):
                 cdrive = file_id
                 break
@@ -463,25 +411,16 @@ class Context(object):
         return None
 
     def file_is_open(self, fname):
-        """
-        Check to see if a file is already open.
-        """
         fname = str(fname)
         fname = fname.replace(".\\", "").replace("\\", "/")
 
-        return (fname in self.open_files.keys())
+        return (fname in list(self.open_files.keys()))
         
     def open_file(self, fname, file_id=""):
-        """
-        Simulate opening a file.
-
-        fname - The name of the file.
-        file_id - The numeric ID of the file.
-        """
         fname = str(fname)
         fname = fname.replace(".\\", "").replace("\\", "/")
 
-        if (fname in self.open_files.keys()):
+        if (fname in list(self.open_files.keys())):
             log.warning("File " + str(fname) + " is already open.")
             return
 
@@ -496,7 +435,7 @@ class Context(object):
         fname = fname.replace(".\\", "").replace("\\", "/")
         if fname not in self.open_files:
 
-            if (fname in self.file_id_map.keys()):
+            if (fname in list(self.file_id_map.keys())):
                 fname = self.file_id_map[fname]
             else:
 
@@ -505,7 +444,7 @@ class Context(object):
                     var_name = fname[1:]
                     if self.contains(var_name):
                         fname = "#" + str(self.get(var_name))
-                        if (fname in self.file_id_map.keys()):
+                        if (fname in list(self.file_id_map.keys())):
                             got_it = True
                             fname = self.file_id_map[fname]
                 
@@ -513,6 +452,11 @@ class Context(object):
                     log.error('File {} not open. Cannot write new data.'.format(fname))
                     return False
             
+        if (isinstance(self.open_files[fname], bytes) and isinstance(data, str)):
+            data = data.encode("latin-1")
+        elif (isinstance(self.open_files[fname], str) and isinstance(data, bytes)):
+            data = data.decode("latin-1")
+
         if isinstance(data, str):
 
             if ((len(data.strip()) == 4) and (re.match('&H[0-9A-F]{2}', data, re.IGNORECASE))):
@@ -536,8 +480,11 @@ class Context(object):
             byte_size = utils.get_num_bytes(data)
             byte_list = byte_list[:byte_size]
             
-            for b in byte_list:
-                self.open_files[fname] += b
+            self.open_files[fname] += byte_list
+            return True
+        
+        elif isinstance(data, bytes):
+            self.open_files[fname] += data
             return True
         
         else:
@@ -545,30 +492,20 @@ class Context(object):
             return False
         
     def dump_all_files(self, autoclose=False):
-        for fname in self.open_files.keys():
+        for fname in list(self.open_files.keys()):
             self.dump_file(fname, autoclose=autoclose)
 
     def get_num_open_files(self):
-        """
-        Get the # of currently open files being tracked.
-        """
         return len(self.open_files)
             
     def close_file(self, fname):
-        """
-        Simulate closing a file.
-
-        fname - The name of the file.
-
-        Returns boolean indicating success.
-        """
         global file_count
         
         fname = str(fname).replace(".\\", "").replace("\\", "/")
         file_id = None
         if fname not in self.open_files:
 
-            if (fname in self.file_id_map.keys()):
+            if (fname in list(self.file_id_map.keys())):
                 file_id = fname
                 fname = self.file_id_map[fname]
             else:
@@ -588,11 +525,6 @@ class Context(object):
             self.dump_file(fname)
 
     def dump_file(self, fname, autoclose=False):
-        """
-        Save the contents of a file dumped by the VBA to disk.
-
-        fname - The name of the file.
-        """
         if fname not in self.closed_files:
             if (not autoclose):
                 log.error('File {} not closed. Cannot save.'.format(fname))
@@ -803,9 +735,6 @@ class Context(object):
                           global_only=global_only)
 
     def _get_all_metadata(self, name):
-        """
-        Return all items in something like ActiveDocument.BuiltInDocumentProperties.
-        """
 
         if ((name != "ActiveDocument.BuiltInDocumentProperties") and
             (name != "ThisDocument.BuiltInDocumentProperties")):
@@ -833,6 +762,9 @@ class Context(object):
         return meta_names
     
     def get(self, name, search_wildcard=True, local_only=False, global_only=False):
+
+        if isinstance(name, pyparsing.ParseResults):
+            name = name[0] if name else ""
 
         if ((name is None) or
             (isinstance(name, str) and (len(name.strip()) == 0))):
@@ -916,7 +848,7 @@ class Context(object):
         if (var == "activedocument.variables"):
 
             r = []
-            for var_name in self.doc_vars.keys():
+            for var_name in list(self.doc_vars.keys()):
                 r.append((var_name, self.doc_vars[var_name]))                
             return r
         
@@ -957,13 +889,6 @@ class Context(object):
         return r
 
     def set_excel_selection(self, target):
-        """Resolve Excel Application.Goto/Range targets into Selection.
-
-        This is a best-effort bridge between static OOXML workbook data and the
-        lightweight emulator. The OOXML loader stores named ranges and cell
-        values under internal __excel_* keys; this method consumes those keys
-        and updates common runtime variables such as Selection and ActiveCell.
-        """
         if target is None:
             return None
         if isinstance(target, (list, tuple)) and len(target) > 0:
@@ -1031,9 +956,6 @@ class Context(object):
         return value
 
     def save_intermediate_iocs(self, value):
-        """
-        Save variable values that appear to contain base64 encoded or URL IOCs.
-        """
 
         global num_b64_iocs
         
@@ -1056,11 +978,12 @@ class Context(object):
                 log.info("Found possible intermediate IOC (URL): '" + tmp_value + "'")
 
         if ((num_b64_iocs < 200) and (value not in intermediate_iocs)):
-            uni_value = None
-            try:
-                uni_value = value.decode("utf-8")
-            except UnicodeDecodeError:
-                pass
+            uni_value = value if isinstance(value, str) else None
+            if isinstance(value, bytes):
+                try:
+                    uni_value = value.decode("utf-8")
+                except UnicodeDecodeError:
+                    pass
             if (uni_value is not None):
                 B64_REGEX = r"(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
                 b64_strs = re2.findall(unicode(B64_REGEX), uni_value)
@@ -1088,11 +1011,6 @@ class Context(object):
             intermediate_iocs.remove(old_ioc)
 
     def _set_excel_formula(self, name, value):
-        """
-        Handle setting an Excel cell to a formula.
-
-        Sheets('dd').Cells('d, dd').FormulaLocal = ...
-        """
 
         if ((name is None) or
             (value is None) or
@@ -1137,9 +1055,6 @@ class Context(object):
         return True
 
     def _handle_property_assignment(self, name, value):
-        """
-        If this is a property asignment, call the property handler.
-        """
 
         import procedures
         
@@ -1174,6 +1089,8 @@ class Context(object):
         import expressions
         if (isinstance(name, expressions.SimpleNameExpression)):
             name = str(name)
+        if (isinstance(name, pyparsing.ParseResults)):
+            name = name[0] if name else ""
         
         orig_name = name
         if (not isinstance(name, basestring)):
@@ -1201,7 +1118,7 @@ class Context(object):
         if (("(" in name_str) and (")" in name_str)):
 
             name_str = name_str[:name_str.index("(")].strip()
-            if (name_str in self.globals.keys()):
+            if (name_str in list(self.globals.keys())):
                 force_global = True
 
         if ((not self.in_procedure) and (not force_global) and (not force_local)):
@@ -1386,8 +1303,12 @@ class Context(object):
             params = new_params
             description = utils.strip_nonvb_chars(description)
 
-            if (len(re.findall(r"NULL", action)) > 20):
-                action = action.replace("NULL", "")
+            if isinstance(action, bytes):
+                if (len(re.findall(b"NULL", action)) > 20):
+                    action = action.replace(b"NULL", b"")
+            else:
+                if (len(re.findall(r"NULL", action)) > 20):
+                    action = action.replace("NULL", "")
             
         self.got_actions = True
         self.engine.report_action(action, params, description)

@@ -1,4 +1,3 @@
-
 # pylint: disable=pointless-string-statement
 __version__ = '0.03'
 
@@ -273,7 +272,7 @@ def _pull_cells_sheet_internal(sheet, strip_empty):
 
     max_row = -1
     max_col = -1
-    for cell_index in sheet.cells.keys():
+    for cell_index in list(sheet.cells.keys()):
         curr_row = cell_index[0]
         curr_col = cell_index[1]
         if (curr_row > max_row):
@@ -337,7 +336,7 @@ class ExcelSheet(object):
         r = ""
         if debug:
             r += "Sheet: '" + self.name + "'\n\n"
-            for cell in self.cells.keys():
+            for cell in list(self.cells.keys()):
                 r += str(cell) + "\t=\t'" + str(self.cells[cell]) + "'\n"
         else:
             r += "Sheet: '" + self.name + "'\n"
@@ -349,7 +348,7 @@ class ExcelSheet(object):
         if (self.__num_rows is not None):
             return self.__num_rows
         max_row = -1
-        for cell in self.cells.keys():
+        for cell in list(self.cells.keys()):
             curr_row = cell[0]
             if (curr_row > max_row):
                 max_row = curr_row
@@ -360,7 +359,7 @@ class ExcelSheet(object):
         if (self.__num_cols is not None):
             return self.__num_cols
         max_col = -1
-        for cell in self.cells.keys():
+        for cell in list(self.cells.keys()):
             curr_col = cell[1]
             if (curr_col > max_col):
                 max_col = curr_col
@@ -391,9 +390,6 @@ class ExcelBook(object):
         self.sheets.append(ExcelSheet(cells, name))
 
     def __repr__(self):
-        """String version of workbook.
-
-        """
         log.info("Converting Excel workbook to str ...")
         r = ""
         for sheet in self.sheets:

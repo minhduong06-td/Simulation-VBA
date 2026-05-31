@@ -1,24 +1,9 @@
 #!/usr/bin/env python
-
-
-
-
-
 __version__ = '0.02'
-
-
-
 from logger import log
-
 from pyparsing import *
 
-
-
-
 ParserElement.setDefaultWhitespaceChars(' \t\x19')
-
-
-
 non_line_termination_character = CharsNotIn('\x0D\x0A', exact=1)
 line_terminator = Literal('\x0D\x0A') | Literal('\x0D') | Literal('\x0A')
 non_terminated_line = Optional(CharsNotIn('\x0D\x0A'))
@@ -36,13 +21,6 @@ module_body_lines = Combine(ZeroOrMore(logical_line))
 
 
 def vba_collapse_long_lines(vba_code):
-    """
-    Parse a VBA module code to detect continuation line characters (underscore) and
-    collapse split lines. Continuation line characters are replaced by spaces.
-
-    :param vba_code: str, VBA module code
-    :return: str, VBA module code with long lines collapsed
-    """
     if (vba_code is None):
         return ""
     if vba_code[-1] != '\n':

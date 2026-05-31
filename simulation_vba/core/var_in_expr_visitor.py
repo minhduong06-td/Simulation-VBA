@@ -1,13 +1,7 @@
-
-
-
 from visitor import *
 from statements import *
 
 class var_in_expr_visitor(visitor):
-    """
-    Get the names of all variables that appear in an expression.
-    """
 
     def __init__(self, context=None):
         self.variables = set()

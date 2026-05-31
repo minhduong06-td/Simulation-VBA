@@ -1,12 +1,6 @@
 #!/usr/bin/env python
-
-
 import re
-
 __version__ = '0.02'
-
-
-
 from pyparsing import *
 from reserved import *
 from logger import log

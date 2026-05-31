@@ -3,7 +3,7 @@ olefile
 prettytable
 colorlog
 colorama
-pyparsing==2.2.0
+pyparsing>=2.4.7,<3
 xlrd2
 xlrd
 unidecode==1.2.0

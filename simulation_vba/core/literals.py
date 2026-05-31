@@ -1,23 +1,13 @@
 #!/usr/bin/env python
-
-
-
 __version__ = '0.02'
-
-
 import logging
 import re
-
 from pyparsing import *
-
 from logger import log
 from vba_object import VBA_Object
 
-
 boolean_literal = Regex(re.compile('(True|False)', re.IGNORECASE))
 boolean_literal.setParseAction(lambda t: bool(t[0].lower() == 'true'))
-
-
 
 decimal_literal = Regex(re.compile('(?P<value>[+\-]?\d+)[%&^]?[!#@]?'))
 decimal_literal.setParseAction(lambda t: int(t.value))
@@ -29,8 +19,6 @@ hex_literal = Regex(re.compile('&h(?P<value>[0-9a-f]+)[%&^]?', re.IGNORECASE))
 hex_literal.setParseAction(lambda t: int(t.value, base=16))
 
 integer = decimal_literal | octal_literal | hex_literal
-
-
 
 float_literal = Regex(re.compile('(?P<value>[+\-]?\d+\.\d*([eE][+\-]?\d+)?)[!#@]?')) | \
                 Regex(re.compile('(?P<value>[+\-]?\d+[eE][+\-]?\d+)[!#@]?'))

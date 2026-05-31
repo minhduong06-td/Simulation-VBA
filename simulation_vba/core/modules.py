@@ -1,14 +1,7 @@
 #!/usr/bin/env python
-
-
-
 from __future__ import print_function
-
 __version__ = '0.02'
-
-
 import logging
-
 from comments_eol import *
 from procedures import *
 import procedures
@@ -16,18 +9,11 @@ from statements import *
 import vba_context
 from function_defn_visitor import *
 from vba_object import to_python
-
 from logger import log
-
-
 
 class Module(VBA_Object):
 
     def _handle_func_decls(self, tokens):
-        """
-        Look for functions/subs declared anywhere, including inside the body 
-        of other functions/subs.
-        """
 
         for token in tokens:
             if (not hasattr(token, "accept")):
@@ -71,7 +57,7 @@ class Module(VBA_Object):
         for token in tokens:
 
             if isinstance(token, If_Statement_Macro):
-                for n in token.external_functions.keys():
+                for n in list(token.external_functions.keys()):
                     if (log.getEffectiveLevel() == logging.DEBUG):
                         log.debug("saving external func decl: %r" % n)
                     self.external_functions[n] = token.external_functions[n]
@@ -108,13 +94,13 @@ class Module(VBA_Object):
 
     def __repr__(self):
         r = 'Module %r\n' % self.name
-        for sub in self.subs.values():
+        for sub in list(self.subs.values()):
             r += '  %r\n' % sub
-        for func in self.functions.values():
+        for func in list(self.functions.values()):
             r += '  %r\n' % func
-        for extfunc in self.external_functions.values():
+        for extfunc in list(self.external_functions.values()):
             r += '  %r\n' % extfunc
-        for prop in self.props.values():
+        for prop in list(self.props.values()):
             r += '  %r\n' % func
         return r
 
@@ -151,31 +137,27 @@ class Module(VBA_Object):
         return to_python(self.loose_lines, context, indent=indent, statements=True)
     
     def load_context(self, context):
-        """
-        Load functions/subs defined in the module into the given
-        context.
-        """
         
-        for name, _sub in self.subs.items():
+        for name, _sub in list(self.subs.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing sub "%s" in globals' % name)
             context.set(name, _sub)
             context.set(name, _sub, force_global=True)
-        for name, _function in self.functions.items():
+        for name, _function in list(self.functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing function "%s" in globals' % name)
             context.set(name, _function)
             context.set(name, _function, force_global=True)
-        for name, _prop in self.props.items():
+        for name, _prop in list(self.props.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing property let "%s" in globals' % name)
             context.set(name, _prop)
             context.set(name, _prop, force_global=True)
-        for name, _function in self.external_functions.items():
+        for name, _function in list(self.external_functions.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing external function "%s" in globals' % name)
             context.set(name, _function)
-        for name, _var in self.global_vars.items():
+        for name, _var in list(self.global_vars.items()):
             if (log.getEffectiveLevel() == logging.DEBUG):
                 log.debug('(1) storing global var "%s" = %s in globals (1)' % (name, str(_var)))
             if (isinstance(name, str)):
@@ -212,10 +194,6 @@ empty_line = EOL.suppress()
 pointless_empty_tuple = Suppress('(') + Suppress(')')
 
 class LooseLines(VBA_Object):
-    """
-    A list of Visual Basic statements that don't appear in a Sub or Function.
-    This is mainly appicable to VBScript files.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(LooseLines, self).__init__(original_str, location, tokens)

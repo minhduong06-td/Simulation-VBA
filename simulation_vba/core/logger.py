@@ -1,16 +1,6 @@
 #!/usr/bin/env python
-
-
-
-
-
 __version__ = '0.08'
-
-
-
 import logging
-
-
 class CappedFileHandler(logging.FileHandler):
 
     def __init__(self, filename, sizecap, mode='w', encoding=None, delay=False):
@@ -38,13 +28,6 @@ class DuplicateFilter(logging.Filter):
         return False
 
 def get_logger(name, level=logging.NOTSET):
-    """
-    Create a suitable logger object for this module.
-    The goal is not to change settings of the root logger, to avoid getting
-    other modules' logs on the screen.
-    If a logger exists with same name, reuse it. (Else it would have duplicate
-    handlers and messages would be doubled.)
-    """
     if name in logging.Logger.manager.loggerDict:
         logger = logging.getLogger(name)
         logger.setLevel(level)

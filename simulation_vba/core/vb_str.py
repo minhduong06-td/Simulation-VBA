@@ -1,5 +1,15 @@
-
-
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
 
 __version__ = '0.08'
 
@@ -11,10 +21,6 @@ except:
     import re
 
 def is_wide_str(the_str):
-    """
-    Test to see if the given string is a simple wide char string (every other
-    character is a null byte).
-    """
     if (len(the_str) < 2):
         return False
     if ((len(the_str) % 2) != 0):
@@ -31,17 +37,11 @@ def is_wide_str(the_str):
     return is_wide
 
 def convert_wide_to_ascii(the_str):
-    """
-    Convert a simple wide string to ASCII.
-    """
     if (not is_wide_str(the_str)):
         return the_str
     return the_str[::2]
     
 def is_mixed_wide_ascii_str(the_str):
-    """
-    Test a string to see if it is a mix of wide and ASCII chars.
-    """
     uni_str = None
     try:
         uni_str = the_str.decode("utf-8")
@@ -54,12 +54,6 @@ def is_mixed_wide_ascii_str(the_str):
 
 str_to_ascii_map = None
 def get_ms_ascii_value(the_str):
-    """
-    Get the VBA ASCII value of a given string. This handles VBA using a different
-    extended ASCII character set than everyone else in the world.
-
-    This handles both retgular Python strings and VbStr objects.
-    """
 
     if ((not isinstance(the_str, str)) and (not isinstance(the_str, VbStr))):
         return ValueError("'" + str(the_str) + "' is not a string.")    
@@ -67,7 +61,7 @@ def get_ms_ascii_value(the_str):
     global str_to_ascii_map
     if (str_to_ascii_map is None):
         str_to_ascii_map = {}
-        for code in VbStr.ascii_map.keys():
+        for code in list(VbStr.ascii_map.keys()):
             for bts in VbStr.ascii_map[code]:
                 chars = ""
                 for bt in bts:
@@ -217,17 +211,6 @@ class VbStr(object):
     }
     
     def __init__(self, orig_str, is_vbscript=False):
-        """
-        Create a new VBA string object.
-
-        orig_str - The raw Python string.
-        is_vbscript - VBScript handles mixed ASCII/wide char strings differently than
-        VBA. Set this to True if VBScript is being analyzed, False if VBA is being 
-        analyzed.
-
-        NOTE: This just handles characters from Microsoft's special extended ASCII set.
-
-        """
 
         self.is_vbscript = is_vbscript
         
@@ -253,7 +236,7 @@ class VbStr(object):
 
 
             tmp_str = orig_str
-            for code in self.ascii_map.keys():
+            for code in list(self.ascii_map.keys()):
                 chars = ""
                 for bts in self.ascii_map[code]:
                     pos = 0
@@ -315,15 +298,9 @@ class VbStr(object):
         return len(self.vb_str)
 
     def to_python_str(self):
-        """
-        Return the VB string as a raw Python str.
-        """
         return "".join(self.vb_str)
 
     def get_chunk(self, start, end):
-        """
-        Return a chunk of the string as a vb_string object.
-        """
 
         if ((start < 0) or (start > len(self.vb_str))):
             raise ValueError("start index " + str(start) + " out of bounds.")
@@ -335,12 +312,6 @@ class VbStr(object):
         return VbStr(self.vb_str[start:end])
 
     def update_chunk(self, start, end, new_str):
-        """
-        Return a new copy of the current string updated with the given chunk
-        replaced with the given string (can be a VbStr or a raw Python string).
-
-        The current VB string object is not changed.
-        """
 
         if ((start < 0) or (start >= len(self.vb_str))):
             raise ValueError("start index " + str(start) + " out of bounds.")

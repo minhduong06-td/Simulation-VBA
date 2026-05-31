@@ -1,13 +1,7 @@
-
-
-
 from visitor import *
 from statements import *
 
 class var_defn_visitor(visitor):
-    """
-    Collect the names of all declared variables.
-    """
 
     def __init__(self):
         self.variables = set()

@@ -289,6 +289,8 @@ def pull_embedded_pe_files(data, out_dir):
         return
     
     pe_pat = r"MZ.{70,80}This program (?:(?:cannot be run in DOS mode\.)|(?:must be run under Win32))"
+    if isinstance(data, bytes):
+        data = data.decode("latin-1", errors="replace")
     if (re.search(pe_pat, data) is None):
         return
 

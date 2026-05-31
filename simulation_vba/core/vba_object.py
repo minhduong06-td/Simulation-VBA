@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-
-
-
-
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
 
 __version__ = '0.08'
-
-
-
 import logging
 from logger import log
 import re
@@ -16,12 +21,10 @@ import traceback
 import string
 import gc
 import hashlib
-
 from inspect import getouterframes, currentframe
 import sys
 from datetime import datetime
 import pyparsing
-
 import expressions
 from var_in_expr_visitor import *
 from function_call_visitor import *
@@ -35,21 +38,11 @@ import excel
 max_emulation_time = None
 
 class VbaLibraryFunc(object):
-    """
-    Marker class to tell if a class implements a VBA function.
-    """
-
     def num_args(self):
-        """
-        Get the # of arguments (minimum) required by the functio.
-        """
         log.warning("Using default # args of 1 for " + str(type(self)))
         return 1
 
     def return_type(self):
-        """
-        Get the python type returned from the emulated function ('INTEGER' or 'STRING').
-        """
         log.warning("Using default return type of 'INTEGER' for " + str(type(self)))
         return "INTEGER"
 
@@ -58,12 +51,7 @@ def excel_col_letter_to_index(x):
     return (reduce(lambda s,a:s*26+ord(a)-ord('A')+1, x, 0) - 1)
 
 def limits_exceeded(throw_error=False):
-    """
-    Check to see if we are about to exceed the maximum recursion depth. Also check to 
-    see if emulation is taking too long (if needed).
-    """
-
-    level = len(getouterframes(currentframe(1)))
+    level = len(getouterframes(sys._getframe(1)))
     recursion_exceeded = (level > (sys.getrecursionlimit() * .50))
     time_exceeded = False
 
@@ -82,21 +70,8 @@ def limits_exceeded(throw_error=False):
     return (recursion_exceeded or time_exceeded)
 
 class VBA_Object(object):
-    """
-    Base class for all VBA objects that can be evaluated.
-    """
-
     loop_upper_bound = 10000000
-    
     def __init__(self, original_str, location, tokens):
-        """
-        VBA_Object constructor, to be called as a parse action by a pyparsing parser
-
-        :param original_str: original string matched by the parser
-        :param location: location of the match
-        :param tokens: tokens extracted by the parser
-        :return: nothing
-        """
         self.original_str = original_str
         self.location = location
         self.tokens = tokens
@@ -106,12 +81,6 @@ class VBA_Object(object):
         self.exited_with_goto = False
         
     def eval(self, context, params=None):
-        """
-        Evaluate the current value of the object.
-
-        :param context: Context for the evaluation (local and global variables)
-        :return: current value of the object
-        """
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug(self)
 
@@ -119,16 +88,13 @@ class VBA_Object(object):
         return str(self)
         
     def get_children(self):
-        """
-        Return the child VBA objects of the current object.
-        """
 
         limits_exceeded(throw_error=True)
         
         if ((hasattr(self, "_children")) and (self._children is not None)):
             return self._children
         r = []
-        for _, value in self.__dict__.iteritems():
+        for _, value in self.__dict__.items():
             if (isinstance(value, VBA_Object)):
                 r.append(value)
             if ((isinstance(value, list)) or
@@ -137,16 +103,13 @@ class VBA_Object(object):
                     if (isinstance(i, VBA_Object)):
                         r.append(i)
             if (isinstance(value, dict)):
-                for i in value.values():
+                for i in list(value.values()):
                     if (isinstance(i, VBA_Object)):
                         r.append(i)
         self._children = r
         return r
                         
     def accept(self, visitor, no_embedded_loops=False):
-        """
-        Visitor design pattern support. Accept a visitor.
-        """
 
         limits_exceeded(throw_error=True)
         
@@ -174,15 +137,9 @@ class VBA_Object(object):
         visitor.in_loop = old_in_loop
 
     def to_python(self, context, params=None, indent=0):
-        """
-        JIT compile this VBA object to Python code for direct emulation.
-        """
         raise NotImplementedError("to_python() not implemented in " + str(type(self)))
 
 def _read_from_excel(arg, context):
-    """
-    Try to evaluate an argument by reading from the loaded Excel spreadsheet.
-    """
 
     if ("MemberAccessExpression" not in str(type(arg))):
         return None        
@@ -244,9 +201,6 @@ def _read_from_excel(arg, context):
             context.report_general_error("Cannot read cell from Excel spreadsheet. " + str(e))
 
 def _read_from_object_text(arg, context):
-    """
-    Try to read in a value from the text associated with a object like a Shape.
-    """
 
     arg_str = str(arg)
     arg_str_low = arg_str.lower().strip()
@@ -321,9 +275,6 @@ def _read_from_object_text(arg, context):
         return val
 
 def contains_excel(arg):
-    """
-    See if a given expression contains Excel book or sheet objects.
-    """
 
     if (isinstance(arg, excel.ExcelSheet) or
         isinstance(arg, excel.ExcelBook)):
@@ -338,9 +289,6 @@ def contains_excel(arg):
 constant_expr_cache = {}
 
 def get_cached_value(arg):
-    """
-    Get the cached value of an all constant numeric expression if we have it.
-    """
 
     if (isinstance(arg, int) or
         isinstance(arg, dict)):
@@ -350,14 +298,11 @@ def get_cached_value(arg):
         return None
 
     arg_str = str(arg)
-    if (arg_str not in constant_expr_cache.keys()):
+    if (arg_str not in list(constant_expr_cache.keys())):
         return None
     return constant_expr_cache[arg_str]
 
 def set_cached_value(arg, val):
-    """
-    Set the cached value of an all constant numeric expression.
-    """
 
     if ((not isinstance(val, int)) and
         (not isinstance(val, float)) and
@@ -378,9 +323,6 @@ def set_cached_value(arg, val):
     constant_expr_cache[arg_str] = val
     
 def is_constant_math(arg):
-    """
-    See if a given expression is a simple math expression with all literal numbers.
-    """
 
     if (isinstance(arg, VBA_Object)):
         var_visitor = var_in_expr_visitor()
@@ -410,9 +352,6 @@ def is_constant_math(arg):
 meta = None
 
 def _boilerplate_to_python(indent):
-    """
-    Get starting boilerplate code for VB to Python JIT code.
-    """
     indent_str = " " * indent
     boilerplate = indent_str + "import core.vba_library\n"
     boilerplate = indent_str + "import core.vba_context\n"
@@ -433,10 +372,6 @@ def _boilerplate_to_python(indent):
     return boilerplate
 
 def _get_local_func_type(expr, context):
-    """
-    Get the return type of a locally defined funtion given a call
-    to the function.
-    """
 
     if (not isinstance(expr, expressions.Function_Call)):
         return None
@@ -452,9 +387,6 @@ def _get_local_func_type(expr, context):
     return None
         
 def _infer_type_of_expression(expr, context):
-    """
-    Try to determine if a given expression is an "INTEGER" or "STRING" expression.
-    """
 
     import operators
     import vba_library
@@ -508,14 +440,6 @@ def _infer_type_of_expression(expr, context):
     return None
     
 def _infer_type(var, code_chunk, context):
-    """
-    Try to infer the type of an undefined variable based on how it is used ("STRING" or "INTEGER").
-
-    This is currently purely a heuristic.
-
-    returns a tuple, 1st element is the inferred type ("STRING" or "INTEGER") and the 2nd element 
-    is a flag indicating if we are sure of the type (True) or just guessing (False).
-    """
 
     visitor = let_statement_visitor(var)
     code_chunk.accept(visitor)
@@ -536,12 +460,6 @@ def _infer_type(var, code_chunk, context):
     return ("INTEGER", False)
 
 def _get_var_vals(item, context, global_only=False):
-    """
-    Get the current values for all of the referenced VBA variables that appear in the 
-    given VBA object.
-
-    Returns a dict mapping var names to values.
-    """
 
     import procedures
     import statements
@@ -669,9 +587,6 @@ def _get_var_vals(item, context, global_only=False):
     return (r, zero_arg_funcs)
 
 def _loop_vars_to_python(loop, context, indent):
-    """
-    Set up initialization of variables used in a loop in Python.
-    """
     indent_str = " " * indent
     loop_init = ""
     init_vals, _ = _get_var_vals(loop, context)
@@ -695,9 +610,6 @@ def _loop_vars_to_python(loop, context, indent):
     return (loop_init, prog_var)
 
 def to_python(arg, context, params=None, indent=0, statements=False):
-    """
-    Call arg.to_python() if arg is a VBAObject, otherwise just return arg as a str.
-    """
         
     r = None
     _arg_type = type(arg).__name__
@@ -777,10 +689,6 @@ def to_python(arg, context, params=None, indent=0, statements=False):
     return r
 
 def _check_for_iocs(loop, context, indent):
-    """
-    Check the variables modified in a loop to see if they were
-    set to interesting IOCs.
-    """
     indent_str = " " * indent
     lhs_visitor = lhs_var_visitor()
     loop.accept(lhs_visitor)
@@ -795,9 +703,6 @@ def _check_for_iocs(loop, context, indent):
     return ioc_str
 
 def _updated_vars_to_python(loop, context, indent):
-    """
-    Save the variables updated in a loop in Python.
-    """
     import statements
     
     indent_str = " " * indent
@@ -831,9 +736,6 @@ def _updated_vars_to_python(loop, context, indent):
     return save_vals
 
 def _get_all_called_funcs(item, context):
-    """
-    Get all of the local functions called in the given VBA object.
-    """
 
     call_visitor = function_call_visitor()
     item.accept(call_visitor)
@@ -853,9 +755,6 @@ def _get_all_called_funcs(item, context):
     return local_funcs
 
 def _called_funcs_to_python(loop, context, indent):
-    """
-    Convert all the functions called in the loop to Python.
-    """
     
     local_funcs = _get_all_called_funcs(loop, context)
     local_func_hashes = set()
@@ -894,9 +793,6 @@ def _called_funcs_to_python(loop, context, indent):
 jit_cache = {}
 
 def _eval_python(loop, context, params=None, add_boilerplate=False, namespace=None):
-    """
-    Convert the loop to Python and emulate the loop directly in Python.
-    """
 
     if (not context.do_jit):
         return False
@@ -955,7 +851,7 @@ def _eval_python(loop, context, params=None, add_boilerplate=False, namespace=No
 
         elif (namespace is None):
             log.info("Evaluating Python JIT code...")
-            exec code_python in locals()
+            exec(code_python, locals())
         else:
             exec(code_python, namespace)
             var_updates = namespace["var_updates"]
@@ -964,7 +860,7 @@ def _eval_python(loop, context, params=None, add_boilerplate=False, namespace=No
         jit_cache[code_python] = var_updates
         
         try:
-            for updated_var in var_updates.keys():
+            for updated_var in list(var_updates.keys()):
                 if (updated_var == "__shell_code__"):
                     continue
                 context.set(updated_var, var_updates[updated_var])
@@ -995,9 +891,6 @@ def _eval_python(loop, context, params=None, add_boilerplate=False, namespace=No
     return True
 
 def eval_arg(arg, context, treat_as_var_name=False):
-    """
-    evaluate a single argument if it is a VBA_Object, otherwise return its value
-    """
 
     limits_exceeded(throw_error=True)
 
@@ -1264,10 +1157,6 @@ def eval_arg(arg, context, treat_as_var_name=False):
         return arg
 
 def eval_args(args, context, treat_as_var_name=False):
-    """
-    Evaluate a list of arguments if they are VBA_Objects, otherwise return their value as-is.
-    Return the list of evaluated arguments.
-    """
     try:
         iterator = iter(args)
     except TypeError:
@@ -1288,9 +1177,6 @@ def eval_args(args, context, treat_as_var_name=False):
     return r
 
 def update_array(old_array, indices, val):
-    """
-    Add an item to a Python list.
-    """
 
     if (not isinstance(old_array, list)):
         old_array = []
@@ -1316,11 +1202,6 @@ def update_array(old_array, indices, val):
     return old_array
 
 def coerce_to_int_list(obj):
-    """
-    Coerce a constant string VBA object to a list of ASCII codes.
-    :param obj: VBA object
-    :return: list
-    """
 
     if (isinstance(obj, list)):
         return obj
@@ -1333,11 +1214,6 @@ def coerce_to_int_list(obj):
     return r
 
 def coerce_to_str(obj, zero_is_null=False):
-    """
-    Coerce a constant VBA object (integer, Null, etc) to a string.
-    :param obj: VBA object
-    :return: string
-    """
 
     if ((obj is None) or (obj == "NULL")):
         return ''
@@ -1348,12 +1224,16 @@ def coerce_to_str(obj, zero_is_null=False):
 
     if (isinstance(obj, basestring)):
 
-        if (isinstance(obj, unicode)):
+        if (isinstance(obj, bytes)):
             try:
-                return obj.encode('utf-8')
+                return obj.decode('utf-8', errors='replace')
             except:
                 pass
-            
+            return obj.decode('latin-1')
+        
+        if (isinstance(obj, unicode)):
+            return obj
+        
         return obj
     
     if (isinstance(obj, list)):
@@ -1383,18 +1263,9 @@ def coerce_to_str(obj, zero_is_null=False):
         return ''
 
 def coerce_args_to_str(args):
-    """
-    Coerce a list of arguments to strings.
-    Return the list of evaluated arguments.
-    """
     return [coerce_to_str(arg) for arg in args]
 
 def coerce_to_int(obj):
-    """
-    Coerce a constant VBA object (integer, Null, etc) to a int.
-    :param obj: VBA object
-    :return: int
-    """
 
     if ((obj is None) or (obj == "NULL")):
         return 0
@@ -1432,11 +1303,6 @@ def coerce_to_int(obj):
         return 0
 
 def coerce_to_num(obj):
-    """
-    Coerce a constant VBA object (integer, Null, etc) to a int or float.
-    :param obj: VBA object
-    :return: int
-    """
     if ((obj is None) or (obj == "NULL")):
         return 0
 
@@ -1470,19 +1336,9 @@ def coerce_to_num(obj):
     return int(obj)
 
 def coerce_args_to_int(args):
-    """
-    Coerce a list of arguments to ints.
-    Return the list of evaluated arguments.
-    """
     return [coerce_to_int(arg) for arg in args]
 
 def coerce_args(orig_args, preferred_type=None):
-    """
-    Coerce all of the arguments to either str or int based on the most
-    common arg type.
-
-    preferred_type = Preferred type to coerce things if possible.
-    """
 
     if (len(orig_args) == 0):
         return orig_args

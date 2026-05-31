@@ -1,195 +1,211 @@
 # Simulation VBA
 
-Simulation VBA is a VBA macro emulation and analysis tool for Microsoft Office documents. It is designed to help inspect suspicious VBA macros, deobfuscate strings, simulate macro execution, collect IOCs, and dump files created by the macro during emulation.
+Simulation VBA is a VBA macro emulation and analysis tool for Microsoft Office documents. It parses and emulates VBA macros, deobfuscates payloads, records IOCs and actions, and extracts dropped artifacts — all inside an isolated Docker container with networking disabled.
 
-The tool supports Office Open XML files such as `.xlsm`, `.docm`, `.pptm`, and related formats. It also includes Excel workbook context handling for common macro hiding techniques, such as payload fragments stored in shapes, UserForm properties, named ranges, selected cells, and worksheet strings.
+Supports Office Open XML formats (`.xlsm`, `.docm`, `.pptm`) and standalone HTA/VBScript files.
 
-## Main Features
+## Features
 
 - Parse and emulate VBA macros from Office files.
-- Detect auto-execution entry points such as `Auto_Open`.
-- Track suspicious actions such as file writes, shell execution, environment access, and dropped files.
-- Resolve Excel OOXML runtime context, including shapes, defined names, cells, selections, and UserForm strings.
-- Decode and reconstruct payloads that are split across multiple workbook locations.
-- Save dropped files and artifact archives to the directory where the command is run.
-- Safely deobfuscate and simulate HTA or plain-text VBScript with dangerous actions stubbed.
-- Run analysis inside a fresh Docker container with networking disabled.
+- Detect auto-execution entry points (`Auto_Open`, etc.).
+- Track suspicious actions: file writes, `Shell`, registry access, process injection, `CreateObject`.
+- Resolve Excel OOXML runtime context: shapes, defined names, cells, selections, UserForm strings.
+- Decode payloads split across multiple workbook locations.
+- Deobfuscate and simulate HTA / VBScript with dangerous actions stubbed.
+- Save dropped files and artifact archives to the working directory.
+- Run inside a fresh Docker container with `--network none`.
 
 ## Requirements
 
-Recommended usage requires Docker.
+- Docker
+- Bash (Linux or WSL)
 
-The Docker wrapper creates a new disposable container for each analysis run. The local source tree is copied into the container each time, so local code changes are used immediately.
+Python 3 is only needed for local development (optional). The Docker wrapper uses Python 3 inside the container automatically.
 
-## Basic Usage
-
-From the repository root:
+## Installation
 
 ```bash
+git clone <repo-url> Simulation-VBA
+cd Simulation-VBA
 chmod +x docker/simulation_vba.sh
-./docker/simulation_vba.sh path/to/sample.xlsm
+```
+
+Optional alias:
+
+```bash
+alias dockervba="$PWD/docker/simulation_vba.sh"
+```
+
+## Docker Image Behavior
+
+- **First run**: if the local image `md06/simulation:latest` does not exist, the script builds it from `docker/Dockerfile`.
+- **Subsequent runs**: the cached image is reused — no rebuild.
+- **Each run**: a temporary container is created, the current source tree is copied in, and the container is removed when done.
+- **Source changes**: no need to rebuild. Source is copied fresh each run, so code edits take effect immediately.
+- **Network**: containers are started with `--network none` for safety.
+
+Use `--rebuild` to force a fresh image build (e.g., after changing `docker/Dockerfile` or `requirements.txt`).
+
+## Usage
+
+All examples assume `dockervba` is aliased. Replace with `./docker/simulation_vba.sh` if not.
+
+### Simulate an Office file
+
+```bash
+dockervba sample.xlsm
+```
+
+### Deobfuscate and simulate (Office)
+
+```bash
+dockervba --deob simulate sample.xlsm
+```
+
+### Deobfuscate and simulate an HTA or VBScript
+
+```bash
+dockervba --deob simulate sample.hta
+```
+
+Options can also appear after the file:
+
+```bash
+dockervba sample.hta --deob simulate
+```
+
+### Rebuild the Docker image
+
+```bash
+dockervba --rebuild
+```
+
+Or rebuild and run in one step:
+
+```bash
+dockervba --rebuild sample.xlsm
+```
+
+### Clean artifacts only (no Docker)
+
+```bash
+dockervba --clean-artifacts
+```
+
+Removes `*_artifacts/`, `*_artifacts.zip`, `__pycache__`, `*.pyc` from the repo.
+
+### Full cleanup (Docker + artifacts)
+
+```bash
+dockervba --clean
+```
+
+Removes:
+- Containers `simulation-vba-run-*`
+- Temp images `simulation-vba-temp:*`
+- Cached image `md06/simulation:latest`
+- Repo build artifacts
+
+### Custom entry point
+
+```bash
+dockervba sample.xlsm -i Auto_Open
+```
+
+### JSON report
+
+```bash
+dockervba sample.xlsm report.json
+```
+
+With custom entry point:
+
+```bash
+dockervba sample.xlsm report.json -i Auto_Open
+```
+
+## Output / Artifacts
+
+Emulation logs, recorded actions, and IOCs are printed to the terminal.
+
+If the macro drops files during emulation, they are copied to:
+
+```text
+<input>_artifacts/
+<input>_artifacts.zip
 ```
 
 Example:
 
-```bash
-./docker/simulation_vba.sh ~/samples/invoice-42369643.xlsm
+```
+invoice-42369643.xlsm_artifacts/LwTHLrGh.hta
 ```
 
-## Output
-
-The tool prints macro parsing results, emulation logs, recorded actions, and possible IOCs to the terminal.
-
-If the macro drops files during emulation, artifacts are copied to the directory where the command was run:
-
-```text
-sample.xlsm_artifacts/
-sample.xlsm_artifacts.zip
-```
-
-The artifact zip is password-protected with:
-
-```text
-infected
-```
-
-To inspect the archive:
+The zip is password-protected with `infected`:
 
 ```bash
 unzip -l sample.xlsm_artifacts.zip
+unzip sample.xlsm_artifacts.zip   # password: infected
 ```
 
-To extract it:
+## Environment Variables
 
-```bash
-unzip sample.xlsm_artifacts.zip
-```
-
-When prompted for the password, enter:
-
-```text
-infected
-```
-
-## JSON Report
-
-A JSON report can be written by passing an output filename as the second argument:
-
-```bash
-./docker/simulation_vba.sh path/to/sample.xlsm report.json
-```
-
-The JSON file is written to the directory where the command was run, unless an absolute path is provided.
-
-## Custom Entry Point
-
-To start emulation from a specific macro entry point:
-
-```bash
-./docker/simulation_vba.sh path/to/sample.xlsm -i Auto_Open
-```
-
-With JSON output:
-
-```bash
-./docker/simulation_vba.sh path/to/sample.xlsm report.json -i Auto_Open
-```
-
-## Docker Options
-
-The wrapper supports a few environment variables:
-
-```bash
-SIMULATIONVBA_DOCKER_PULL=0 ./docker/simulation_vba.sh sample.xlsm
-```
-
-Do not pull the base Docker image before running.
-
-```bash
-SIMULATIONVBA_DOCKER_KEEP=1 ./docker/simulation_vba.sh sample.xlsm
-```
-
-Keep the container after analysis for debugging.
-
-```bash
-SIMULATIONVBA_DOCKER_IMAGE=image_name ./docker/simulation_vba.sh sample.xlsm
-```
-
-Use a custom Docker image as the runtime base.
-
-## Optional Local Installation
-
-The tool can also be installed as a Python package:
-
-```bash
-pip install -e .
-```
-
-After installation, the command-line entry point is:
-
-```bash
-simulation_vba path/to/sample.xlsm
-```
-
-For common macro analysis options:
-
-```bash
-simulation_vba -s --iocs --jit path/to/sample.xlsm
-```
-
-Docker usage is recommended for suspicious files.
-
-## Safe HTA and Plain-Text Deobfuscation
-
-Use `--deob simulate` for HTA or plain-text VBA/VBScript input:
-
-```bash
-simulation_vba --deob simulate path/to/sample.hta
-```
-
-This mode extracts VBScript from HTA script blocks, deobfuscates simple string
-construction such as `Chr()` concatenation, prints the preserved source text, and
-logs dangerous actions as stubs. It does not execute shell commands, create
-objects outside the emulator, run subprocesses, write/delete files, access the
-network, or modify the registry.
+| Variable | Default | Description |
+|---|---|---|
+| `SIMULATIONVBA_DOCKER_IMAGE` | `md06/simulation:latest` | Docker image tag |
+| `SIMULATIONVBA_DOCKER_PULL` | `0` | Pull image before each run |
+| `SIMULATIONVBA_DOCKER_KEEP` | `0` | Keep container after run for debugging |
 
 ## Safety Notes
 
-Analyze untrusted Office files only in an isolated environment.
+- Analyze untrusted files only in an isolated environment (VM, sandbox).
+- The Docker wrapper starts containers with `--network none`.
+- Dangerous actions (`Shell`, `CreateObject`, registry, process injection) are logged and stubbed — never executed for real.
+- The `--deob simulate` path is non-destructive; unsupported statements are preserved in output.
+- Do not open suspicious Office documents in Microsoft Office on your main system.
 
-The Docker wrapper starts the container with networking disabled. This helps reduce risk during macro emulation, but it is not a replacement for a dedicated malware analysis environment.
+## Developer Notes
 
-The `--deob simulate` path is non-destructive: unsupported statements remain in
-the printed source instead of being dropped during deobfuscation.
+- Source is copied into the container every run. Edit code, re-run — no rebuild needed.
+- Rebuild image only when `docker/Dockerfile` or `requirements.txt` changes:
 
-Do not open suspicious Office documents directly in Microsoft Office on your main system.
+  ```bash
+  dockervba --rebuild
+  ```
 
-## Typical Workflow
+- To check for leftover Docker resources:
 
-1. Run the sample through the Docker wrapper.
-2. Review recorded actions in the terminal output.
-3. Check for suspicious behavior such as file writes, shell commands, and decoded payloads.
-4. Inspect any dumped artifacts in the generated artifact directory or zip file.
-5. Use the JSON report if structured output is needed.
+  ```bash
+  docker ps -a | grep -iE 'simulation|vba'
+  docker images | grep -iE 'simulation-vba-temp|md06/simulation'
+  ```
 
-Example:
+## Testing Checklist
 
 ```bash
-./docker/simulation_vba.sh sample.xlsm report.json
-unzip -l sample.xlsm_artifacts.zip
+# Full cleanup
+dockervba --clean
+
+# Simulate Office file
+dockervba path/to/sample.xlsm
+
+# Deobfuscate HTA
+dockervba --deob simulate path/to/sample.hta
+
+# Clean repo artifacts only
+dockervba --clean-artifacts
 ```
 
 ## Project Layout
 
 ```text
 docker/simulation_vba.sh        Docker wrapper
+docker/Dockerfile               Docker image definition
+setup.py                        Optional pip install
+requirements.txt                Python dependencies
 simulation_vba/vba_emu.py       Main emulator entry point
 simulation_vba/core/            VBA parser, emulator, and runtime logic
 simulation_vba/core/ooxml_context.py  Excel OOXML context resolver
-setup.py                        Optional Python package installation
-requirements.txt                Python dependencies
 ```
 
-## Notes
-
-Simulation VBA is intended for static and emulated analysis of VBA macro behavior. It does not execute macros inside Microsoft Office. Results should be reviewed manually, especially for heavily obfuscated or unsupported VBA features.
+Simulation VBA is intended for static and emulated analysis of VBA macro behavior. Results should be reviewed manually, especially for heavily obfuscated or unsupported VBA features.

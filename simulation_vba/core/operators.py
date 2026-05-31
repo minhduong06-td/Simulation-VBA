@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-
-
 import operator
-
+from functools import reduce
 __version__ = '0.03'
-
-
 import logging
 import sys
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 
 from vba_object import *
 
@@ -29,9 +28,6 @@ def debug_repr(op, args):
 
 
 class Sum(VBA_Object):
-    """
-    VBA Sum using the operator +
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Sum, self).__init__(original_str, location, tokens)
@@ -79,9 +75,6 @@ class Sum(VBA_Object):
 
 
 class Eqv(VBA_Object):
-    """
-    VBA Eqv operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Eqv, self).__init__(original_str, location, tokens)
@@ -109,9 +102,6 @@ class Eqv(VBA_Object):
     
 
 class Xor(VBA_Object):
-    """
-    VBA Xor operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Xor, self).__init__(original_str, location, tokens)
@@ -152,9 +142,6 @@ class Xor(VBA_Object):
     
 
 class And(VBA_Object):
-    """
-    VBA And operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(And, self).__init__(original_str, location, tokens)
@@ -195,9 +182,6 @@ class And(VBA_Object):
 
 
 class Or(VBA_Object):
-    """
-    VBA Or operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Or, self).__init__(original_str, location, tokens)
@@ -238,9 +222,6 @@ class Or(VBA_Object):
 
 
 class Not(VBA_Object):
-    """
-    VBA binary Not operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Not, self).__init__(original_str, location, tokens)
@@ -274,9 +255,6 @@ class Not(VBA_Object):
 
 
 class Neg(VBA_Object):
-    """
-    VBA binary Not operator.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Neg, self).__init__(original_str, location, tokens)
@@ -310,9 +288,6 @@ class Neg(VBA_Object):
     
 
 class Subtraction(VBA_Object):
-    """
-    VBA Subtraction using the binary operator -
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Subtraction, self).__init__(original_str, location, tokens)
@@ -355,9 +330,6 @@ class Subtraction(VBA_Object):
 
 
 class Multiplication(VBA_Object):
-    """
-    VBA Multiplication using the binary operator *
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Multiplication, self).__init__(original_str, location, tokens)
@@ -386,9 +358,6 @@ class Multiplication(VBA_Object):
 
 
 class Power(VBA_Object):
-    """
-    VBA exponentiation using the binary operator ^
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Power, self).__init__(original_str, location, tokens)
@@ -421,9 +390,6 @@ class Power(VBA_Object):
     
 
 class Division(VBA_Object):
-    """
-    VBA Division using the binary operator /
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Division, self).__init__(original_str, location, tokens)
@@ -456,9 +422,6 @@ class Division(VBA_Object):
 
 
 class MultiOp(VBA_Object):
-    """
-    Defines multiple operators that work within the same level of order or operations.
-    """
     operator_map = {}
 
     def __init__(self, original_str, location, tokens):
@@ -545,24 +508,15 @@ class MultiOp(VBA_Object):
 
 
 class MultiDiv(MultiOp):
-    """
-    VBA Multiplication/Division (used for performance)
-    """
     operator_map = {'*': operator.mul, '/': operator.truediv}
 
 
 class AddSub(MultiOp):
-    """
-    VBA Addition/Subtraction (used for performance)
-    """
     operator_map = {'+': operator.add, '-': operator.sub}
 
 
 
 class FloorDivision(VBA_Object):
-    """
-    VBA Floor Division using the binary operator \
-    """
 
     def __init__(self, original_str, location, tokens):
         super(FloorDivision, self).__init__(original_str, location, tokens)
@@ -604,9 +558,6 @@ class FloorDivision(VBA_Object):
     
 
 class Concatenation(VBA_Object):
-    """
-    VBA String concatenation using the operator &
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Concatenation, self).__init__(original_str, location, tokens)
@@ -668,9 +619,6 @@ class Concatenation(VBA_Object):
 
 
 class Mod(VBA_Object):
-    """
-    VBA Modulo using the operator 'Mod'
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Mod, self).__init__(original_str, location, tokens)

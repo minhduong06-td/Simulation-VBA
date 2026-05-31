@@ -1,15 +1,8 @@
-
-
-
 import sys
-
 from visitor import *
 import pyparsing
 
 class lhs_var_visitor(visitor):
-    """
-    Get the LHS of all Let statements.
-    """
 
     def __init__(self):
         self.variables = set()

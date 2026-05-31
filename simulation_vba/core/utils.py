@@ -1,11 +1,20 @@
-
-
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
 
 import re
 from curses_ascii import isascii
 from curses_ascii import isprint
 import base64
-
 import logging
 
 try:
@@ -21,9 +30,6 @@ from logging import FileHandler
 import excel
 
 def safe_str_convert(s):
-    """
-    Convert a string to ASCII without throwing a unicode decode error.
-    """
 
     if (isinstance(s, dict) and ("value" in s)):
         s = s["value"]
@@ -36,9 +42,6 @@ def safe_str_convert(s):
         return filter(isprint, s)
 
 class Infix:
-    """
-    Used to define our own infix operators.
-    """
     def __init__(self, function):
         self.function = function
     def __ror__(self, other):
@@ -53,9 +56,6 @@ class Infix:
         return self.function(value1, value2)
 
 def safe_plus(x,y):
-    """
-    Handle "x + y" where x and y could be some combination of ints and strs.
-    """
 
     if excel.is_cell_dict(x):
         x = x["value"]
@@ -95,9 +95,6 @@ def safe_plus(x,y):
 plus=Infix(lambda x,y: safe_plus(x, y))
 
 def safe_equals(x,y):
-    """
-    Handle "x = y" where x and y could be some combination of ints and strs.
-    """
 
     if (x == "NULL"):
         x = 0
@@ -117,10 +114,6 @@ eq=Infix(lambda x,y: safe_equals(x, y))
 neq=Infix(lambda x,y: (not safe_equals(x, y)))
 
 def safe_print(text):
-    """
-    Sometimes printing large strings when running in a Docker container triggers exceptions.
-    This function just wraps a print in a try/except block to not crash SimulationVBA when this happens.
-    """
     text = safe_str_convert(text)
     try:
         print(text)
@@ -150,9 +143,6 @@ def fix_python_overlap(var_name):
     return var_name
 
 def b64_decode(value):
-    """
-    Base64 decode a string.
-    """
 
     try:
         tmp_str = ""
@@ -177,9 +167,6 @@ def b64_decode(value):
     return None
 
 class vb_RegExp(object):
-    """
-    Class to simulate a VBS RegEx object in python.
-    """
 
     def __init__(self):
         self.Pattern = None
@@ -220,10 +207,6 @@ class vb_RegExp(object):
         return r
 
 def get_num_bytes(i):
-    """
-    Get the minimum number of bytes needed to represent a given
-    int value.
-    """
     
     if ((i & 0x00000000FF) == i):
         return 1
@@ -234,9 +217,6 @@ def get_num_bytes(i):
     return 8
 
 def int_convert(arg, leave_alone=False):
-    """
-    Convert a VBA expression to an int, handling VBA NULL.
-    """
 
     if (isinstance(arg, int)):
         return arg
@@ -274,9 +254,6 @@ def int_convert(arg, leave_alone=False):
         return arg_str
 
 def str_convert(arg):
-    """
-    Convert a VBA expression to an str, handling VBA NULL.
-    """
     if (arg == "NULL"):
         return ''
     if (excel.is_cell_dict(arg)):
@@ -290,9 +267,6 @@ def str_convert(arg):
         return ''
 
 def strip_nonvb_chars(s):
-    """
-    Strip invalid VB characters from a string.
-    """
 
     if (isinstance(s, unicode)):
         s = s.encode('ascii','replace')

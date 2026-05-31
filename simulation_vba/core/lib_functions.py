@@ -1,29 +1,15 @@
 #!/usr/bin/env python
-
-
-
 __version__ = '0.02'
-
-
 from curses_ascii import isprint
 import logging
 from pyparsing import *
-
 from vba_object import *
 from literals import *
 import vb_str
-
 from logger import log
-
-
-
 expression = Forward()
 
-
 class Chr(VBA_Object):
-    """
-    6.1.2.11.1.4 VBA Chr function
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Chr, self).__init__(original_str, location, tokens)
@@ -59,9 +45,6 @@ chr_.setParseAction(Chr)
 
 
 class Asc(VBA_Object):
-    """
-    VBA Asc function
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Asc, self).__init__(original_str, location, tokens)
@@ -121,9 +104,6 @@ asc.setParseAction(Asc)
 
 
 class StrReverse(VBA_Object):
-    """
-    VBA StrReverse function
-    """
 
     def __init__(self, original_str, location, tokens):
         super(StrReverse, self).__init__(original_str, location, tokens)
@@ -143,9 +123,6 @@ strReverse.setParseAction(StrReverse)
 
 
 class Environ(VBA_Object):
-    """
-    VBA Environ function
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Environ, self).__init__(original_str, location, tokens)

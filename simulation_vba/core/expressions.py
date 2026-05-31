@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
+
 __version__ = '0.03'
 import traceback
 import logging
@@ -68,9 +81,12 @@ class SimpleNameExpression(VBA_Object):
     def __init__(self, original_str, location, tokens, name=None):
         super(SimpleNameExpression, self).__init__(original_str, location, tokens)
         if (name is not None):
-            self.name = name
+            raw_name = name
         else:
-            self.name = tokens.name
+            raw_name = tokens.name
+        if isinstance(raw_name, pyparsing.ParseResults):
+            raw_name = raw_name[0] if raw_name else ""
+        self.name = str(raw_name)
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug('parsed "%r" as SimpleNameExpression' % self)
 
@@ -143,7 +159,7 @@ class SimpleNameExpression(VBA_Object):
 
             var_name = str(self.name)
             global missed_var_count
-            if (var_name not in missed_var_count.keys()):
+            if (var_name not in list(missed_var_count.keys())):
                 missed_var_count[var_name] = 0
             missed_var_count[var_name] += 1
             if (missed_var_count[var_name] < 20):
@@ -180,9 +196,6 @@ instance_expression = CaselessKeyword('Me').suppress()
 instance_expression.setParseAction(InstanceExpression)
 
 class MemberAccessExpression(VBA_Object):
-    """
-    Handle member access expressions.
-    """
 
     def __init__(self, original_str, location, tokens, raw_fields=None):
 
@@ -289,11 +302,21 @@ class MemberAccessExpression(VBA_Object):
             obj_name = None
             curr_func = curr_obj
             if isinstance(curr_obj, SimpleNameExpression):
-                obj_name = str(curr_obj)
-                curr_func = function_call.parseString(obj_name + "()", parseAll=True)[0]
+                raw = curr_obj.name
+                if isinstance(raw, pyparsing.ParseResults):
+                    raw = raw[0] if raw else ""
+                obj_name = str(raw)
+                try:
+                    curr_func = function_call.parseString(obj_name + "()", parseAll=True)[0]
+                except pyparsing.ParseException:
+                    log.warn("Failed to parse method call for %r, skipping." % raw)
+                    return None
                 curr_func.params = []
             elif isinstance(curr_obj, Function_Call):
-                obj_name = str(curr_obj.name)
+                raw = curr_obj.name
+                if isinstance(raw, pyparsing.ParseResults):
+                    raw = raw[0] if raw else ""
+                obj_name = str(raw)
                 curr_func = Function_Call(None, None, None, old_call=curr_obj)
             else:
                 return None
@@ -803,9 +826,6 @@ class MemberAccessExpression(VBA_Object):
         return file_close.eval(context, [str(lhs)])
     
     def _handle_replace(self, context, lhs, rhs):
-        """
-        Handle string replaces of the form foo.Replace(bar, baz). foo is a RegExp object.
-        """
 
         if ((isinstance(rhs, list)) and (len(rhs) > 0)):
             rhs = rhs[0]
@@ -834,10 +854,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_add(self, context, lhs, rhs):
-        """
-        Handle Add() object method calls like foo.Add(bar, baz). 
-        foo is (currently) a Scripting.Dictionary object.
-        """
 
         if (isinstance(lhs, str) and
             lhs.startswith("{") and
@@ -880,10 +896,6 @@ class MemberAccessExpression(VBA_Object):
         return new_dict
 
     def _handle_listbox_list(self, context, lhs, rhs):
-        """
-        Handle List() object method calls like foo.List(bar).
-        foo is (currently) a ListBox object.
-        """
 
         if (isinstance(lhs, str) and
             lhs.startswith("[") and
@@ -921,10 +933,6 @@ class MemberAccessExpression(VBA_Object):
         return lhs[index]
     
     def _handle_listbox_additem(self, context, lhs, rhs):
-        """
-        Handle AddItem() object method calls like foo.AddItem(bar).
-        foo is (currently) a ListBox object.
-        """
 
         if (isinstance(lhs, str) and
             lhs.startswith("[") and
@@ -969,10 +977,6 @@ class MemberAccessExpression(VBA_Object):
         return new_list
 
     def _handle_exists(self, context, lhs, rhs):
-        """
-        Handle Exists() object method calls like foo.Exists(bar). 
-        foo is (currently) a Scripting.Dictionary object.
-        """
 
         if (isinstance(lhs, str) and
             lhs.startswith("{") and
@@ -1009,9 +1013,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_adodb_writes(self, lhs_orig, lhs, rhs, context):
-        """
-        Handle expressions like "foo.Write(...)" where foo = "ADODB.Stream".
-        """
 
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug("_handle_adodb_writes(): lhs_orig = " + str(lhs_orig) + ", lhs = " + str(lhs) + ", rhs = " + str(rhs))
@@ -1076,16 +1077,10 @@ class MemberAccessExpression(VBA_Object):
         return True
 
     def _handle_excel_read(self, context, rhs):
-        """
-        Handle Excel reads like worksheets.cells(1,2).
-        """
 
         return None
 
     def _handle_0_arg_call(self, context, rhs=None):
-        """
-        Handle calls to 0 argument functions.
-        """
 
         if (rhs is None):
             if (len(self.rhs1) > 0):
@@ -1118,10 +1113,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_loadxml(self, context, load_xml_result):
-        """
-        Handle things like kXMeYOrbWn.LoadXML(VuvMyknuKxHFAK). This is 
-        specifically targeting BASE64 XML elements used for base64 decoding.
-        """
 
         memb_str = str(self)
         if (".LoadXML(" not in memb_str):
@@ -1139,9 +1130,6 @@ class MemberAccessExpression(VBA_Object):
         return True
 
     def _handle_savetofile(self, context, filename):
-        """
-        Handle things like TvfSKqpfj.SaveToFile oFyFLFCozNUyE, 2.
-        """
 
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug("_handle_savetofile(): filename = " + str(filename) + ", self = " + str(self))
@@ -1208,18 +1196,12 @@ class MemberAccessExpression(VBA_Object):
         return True
 
     def _handle_path_access(self):
-        """
-        See if this is accessing the Path field of a file/folder object.
-        """
         tmp = str(self.rhs).lower().replace("'", "").replace("[", "").replace("]", "")
         if (tmp == "path"):
 
             return "C:\\Users\\admin\\"
 
     def _handle_indexed_form_access(self, context):
-        """
-        See if this is accessing a control in a form by index.
-        """
 
         self_str = str(self)
         if (".Controls(" not in self_str):
@@ -1267,9 +1249,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_regex_execute(self, context, tmp_lhs):
-        """
-        Handle application of a RegEx object to a string via the RegEx object's Execute() method.
-        """
 
         if (str(tmp_lhs).lower() != "vbscript.regexp"):
             return None
@@ -1308,13 +1287,13 @@ class MemberAccessExpression(VBA_Object):
         if (isinstance(tmp_lhs, dict)):
 
             key = str(self.rhs).replace("[", "").replace("]", "").replace("'", "")
-            if (key.lower() in tmp_lhs.keys()):
+            if (key.lower() in list(tmp_lhs.keys())):
 
                 return tmp_lhs[key.lower()]
 
             if (key.lower() == "text"):
                 key = "value"
-                if (key.lower() in tmp_lhs.keys()):
+                if (key.lower() in list(tmp_lhs.keys())):
 
                     return tmp_lhs[key.lower()]
         
@@ -1399,9 +1378,6 @@ class MemberAccessExpression(VBA_Object):
         return None
 
     def _handle_usedrange_call(self, context):
-        """
-        Handle things like ActiveSheet.UsedRange or Sheets(a).UsedRange.
-        """
 
         rhs = None
         if (len(self.rhs1) > 0):
@@ -1429,9 +1405,6 @@ class MemberAccessExpression(VBA_Object):
         return eval_arg(new_usedrange, context)
     
     def _eval_cell_range(self, context, just_expr=False):
-        """
-        Evaluate a member access expression that results in a range of Excel cells.
-        """
 
         range_exp_str = str(self.lhs).replace("'", "")
         for exp in self.rhs[:-1]:
@@ -1453,9 +1426,6 @@ class MemberAccessExpression(VBA_Object):
             return None
         
     def _handle_specialcells_call(self, context):
-        """
-        Handle things like ActiveSheet.UsedRange.SpecialCells(xlCellTypeConstants)
-        """
 
         rhs = None
         if (len(self.rhs1) > 0):
@@ -1478,10 +1448,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _eval_nested_methods(self, context):
-        """
-        Given a member access expression like foo(1).bar(2).baz(3)
-        evaluate this as nested function calls (conceptually) like baz(3, bar(2, foo(1))).
-        """
 
         res_func = self._convert_nested_methods_to_func_call(context)
         if (res_func is None):
@@ -1491,10 +1457,6 @@ class MemberAccessExpression(VBA_Object):
         return r
 
     def _handle_stringbuilder_method(self, context, lhs_val):
-        """
-        Handle string builder object appends like 'foo.Append_3 "aaa"' and
-        string builder string conversions like 'foo.ToString'.
-        """
 
         if (not str(lhs_val).lower().endswith("stringbuilder")):
             return None
@@ -1533,10 +1495,6 @@ class MemberAccessExpression(VBA_Object):
         return None
 
     def _handle_parentdirectory(self, context):
-        """Handle reading the ParentFolder property for things like
-        undertakesPurposes.GetSpecialFolder(2).ParentFolder.
-
-        """
 
         self_str = str(self).strip()
         if (not self_str.endswith(".ParentFolder")):
@@ -1548,9 +1506,6 @@ class MemberAccessExpression(VBA_Object):
         return child_folder + "\.."
 
     def _handle_exec(self, context):
-        """Handle calling the WSCriptShell Exec() method.
-
-        """
 
         if (isinstance(self.rhs, list) and
             (len(self.rhs) > 0) and
@@ -1959,9 +1914,6 @@ class With_Member_Expression(VBA_Object):
         return r
         
     def _handle_method_calls(self, context):
-        """
-        Handle Scripting.Dictionary...() calls.
-        """
 
         expr_str = str(self)
         if ((not expr_str.startswith(".Exists")) and (not expr_str.startswith(".Count"))):
@@ -2017,9 +1969,6 @@ l_expression << (with_expression ^ member_access_expression ^ new_expression ^ m
 
 
 class Function_Call(VBA_Object):
-    """
-    Function call within a VBA expression
-    """
 
     log_funcs = ["CreateProcessA", "CreateProcessW", "CreateProcess", ".run", "CreateObject",
                  "Open", ".Open", "GetObject", "Create", ".Create", "Environ",
@@ -2038,7 +1987,10 @@ class Function_Call(VBA_Object):
                 self.params = old_call.params
             return
 
-        self.name = str(tokens.name)
+        raw_name = tokens.name
+        if isinstance(raw_name, pyparsing.ParseResults):
+            raw_name = raw_name[0] if raw_name else ""
+        self.name = str(raw_name)
         if (log.getEffectiveLevel() == logging.DEBUG):
             log.debug('Function_Call.name = %r' % self.name)
         assert isinstance(self.name, basestring)
@@ -2241,7 +2193,7 @@ class Function_Call(VBA_Object):
                         r = f.eval(context=context, params=params)                        
                         
                         if (hasattr(f, "byref_params")):
-                            for byref_param_info in f.byref_params.keys():
+                            for byref_param_info in list(f.byref_params.keys()):
                                 try:
                                     arg_var_name = str(self.params[byref_param_info[1]])
                                     if (context.contains(arg_var_name)):
@@ -2511,9 +2463,6 @@ function_call_limited.setParseAction(Function_Call)
 
 
 class Function_Call_Array_Access(VBA_Object):
-    """
-    Array access of the return value of a function call.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(Function_Call_Array_Access, self).__init__(original_str, location, tokens)
@@ -2666,9 +2615,6 @@ expr_const <<= infixNotation(expr_const_item,
 
 
 class BoolExprItem(VBA_Object):
-    """
-    A comparison expression or other item appearing in a boolean expression.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(BoolExprItem, self).__init__(original_str, location, tokens)
@@ -2850,9 +2796,6 @@ bool_expr_item <<= (limited_expression + \
 bool_expr_item.setParseAction(BoolExprItem)
 
 class BoolExpr(VBA_Object):
-    """
-    A boolean expression.
-    """
 
     def __init__(self, original_str, location, tokens):
         super(BoolExpr, self).__init__(original_str, location, tokens)

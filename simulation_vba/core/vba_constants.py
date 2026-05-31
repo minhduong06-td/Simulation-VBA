@@ -1,41 +1,23 @@
-
-
-
 __version__ = '0.08'
-
-
 import random
 
 def is_constant(name):
-    """
-    Check to see if there is a VBA constant with the given name.
-    """
     name = str(name).lower()
     return (name in all_vba_constants.globals)
 
 def get_constant(name):
-    """
-    Use this to get the value of a VBA constant.
-    """
     name = str(name).lower()
     if is_constant(name):
         return all_vba_constants.globals[name]
     return None
 
 def get_type(name):
-    """
-    Get the data type for a VBA constant if known.
-    """
     name = str(name).lower()
     if (name in all_vba_constants.types):
         return all_vba_constants.types[name]
     return None
         
 class VbaConstants(object):
-    """
-    This contains many many many builtin VBA constant values.
-    Don't create one of these objects directly. Use the get_constant() function.
-    """
 
     def __init__(self):
 

@@ -1,4 +1,3 @@
-
 import re
 from functools import reduce
 
@@ -388,7 +387,7 @@ def _simulate_lines(lines, procedures, actions, variables, visited):
             if any(token in lower for token in tokens):
                 _record_action(actions, action, line, action + ' stubbed')
 
-        for proc_name, proc in procedures.items():
+        for proc_name, proc in list(procedures.items()):
             if proc_name in visited:
                 continue
             if _looks_like_proc_call(line, proc['name']):
@@ -407,7 +406,7 @@ def simulate_deobfuscation(code, entry_points=None):
         selected = [name for name in procedures if name in _AUTO_ENTRY_POINTS]
         if not selected:
             selected = [
-                name for name, proc in procedures.items()
+                name for name, proc in list(procedures.items())
                 if proc['type'] == 'sub' and '(' in proc['header'] and ')' in proc['header']
             ]
     else:

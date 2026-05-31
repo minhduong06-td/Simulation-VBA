@@ -1,12 +1,6 @@
-
-
-
 from visitor import *
 
 class function_call_visitor(visitor):
-    """
-    Collect the names of all called functions.
-    """
 
     def __init__(self):
         self.called_funcs = set()

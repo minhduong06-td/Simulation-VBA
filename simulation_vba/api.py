@@ -208,11 +208,11 @@ class Module(CodeBlock):
 
     @property
     def functions(self):
-        return self.obj.functions.values()
+        return list(self.obj.functions.values())
 
     @property
     def subs(self):
-        return self.obj.subs.values()
+        return list(self.obj.subs.values())
 
     @property
     def procedures(self):
@@ -220,10 +220,10 @@ class Module(CodeBlock):
 
     @property
     def entry_points(self):
-        for name, sub in self.obj.subs.iteritems():
+        for name, sub in self.obj.subs.items():
             if name.lower() in self._ENTRY_POINTS:
                 yield sub
-        for name, function in self.obj.functions.iteritems():
+        for name, function in self.obj.functions.items():
             if name.lower() in self._ENTRY_POINTS:
                 yield function
 
@@ -238,16 +238,16 @@ class Module(CodeBlock):
 
     def load_context(self, context):
         context = context or Context()
-        for name, _sub in self.obj.subs.items():
+        for name, _sub in list(self.obj.subs.items()):
             log.debug('(3) storing sub "%s" in globals' % name)
             context.globals[name.lower()] = _sub
-        for name, _function in self.obj.functions.items():
+        for name, _function in list(self.obj.functions.items()):
             log.debug('(3) storing function "%s" in globals' % name)
             context.globals[name.lower()] = _function
-        for name, _function in self.obj.external_functions.items():
+        for name, _function in list(self.obj.external_functions.items()):
             log.debug('(3) storing external function "%s" in globals' % name)
             context.globals[name.lower()] = _function
-        for name, _var in self.obj.global_vars.items():
+        for name, _var in list(self.obj.global_vars.items()):
             log.debug('(3) storing global var "%s" in globals' % name)
             if isinstance(name, str):
                 context.globals[name.lower()] = _var

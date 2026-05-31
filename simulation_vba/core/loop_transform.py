@@ -1,17 +1,9 @@
-
-
-
 import logging
 import re
-
 from logger import log
 import statements
 
 def _transform_dummy_loop1(loop):
-    """
-    Transform useless loops like 'y = 20:Do While x < 100:If x = 6 Then y = 30:x = x + 1:Loop' to
-    'y = 30'
-    """
 
     loop_pat = r"Do\s+While\s+(\w+)\s*<\s*(\d+)\r?\n.{0,500}?Loop"
     loop_str = loop.original_str
@@ -60,10 +52,6 @@ def _transform_dummy_loop1(loop):
     return obj
 
 def _transform_wait_loop(loop):
-    """
-    Transform useless loops like 'Do While x <> y:SomeFunctionCall():Loop' to
-    'SomeFunctionCall()'
-    """
 
     loop_pat = r"[Ww]hile\s+\w+\s*<>\s*\"?\w+\"?\r?\n.{0,500}?[Ww]end"
     loop_str = loop.original_str
@@ -78,9 +66,6 @@ def _transform_wait_loop(loop):
     return loop.body[0]
     
 def transform_loop(loop):
-    """
-    Transform a given VBAObject representing a loop into an easier to emulate construct.
-    """
 
     import statements
     if (not isinstance(loop, statements.While_Statement)):
