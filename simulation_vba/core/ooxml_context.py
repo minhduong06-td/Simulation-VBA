@@ -1,19 +1,16 @@
-"""Helpers for resolving OOXML workbook artifacts used by VBA at runtime.
-
-This module intentionally implements a small, read-only subset of the
-Excel/Office object model.  It does not execute Office content.  It only reads
-static OOXML package parts so the emulator can resolve common expressions such
-as:
-
-    ActiveSheet.Shapes(2).AlternativeText
-    Application.Goto("NamedRange"): Selection
-    SomeUserForm.UnknownProperty
-
-The goal is to bridge values that are present in the document package but are
-not exposed by the lightweight VBA emulator object model.
-"""
-
 from __future__ import print_function
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)
+try:
+    long
+except NameError:
+    long = int
 
 import os
 import posixpath
@@ -49,7 +46,6 @@ OD_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships
 
 
 def _to_text(data):
-    """Return *data* decoded as text without throwing on malformed XML."""
     if data is None:
         return ""
     if isinstance(data, bytes):
@@ -58,7 +54,6 @@ def _to_text(data):
 
 
 def _norm_pkg_path(base_dir, target):
-    """Normalize an OOXML relationship target into a package path."""
     if target is None:
         return None
     target = target.replace("\\", "/")
@@ -68,12 +63,9 @@ def _norm_pkg_path(base_dir, target):
 
 
 def _open_zip(data=None, filename=None):
-    """Open an OOXML zip package from bytes or a filename."""
     if data is not None and not isinstance(data, Exception):
         if isinstance(data, bytes):
             return zipfile.ZipFile(BytesIO(data))
-        # On Python 2, Office bytes are str. On Python 3, this branch is mostly
-        # for callers that accidentally passed text; latin1 preserves byte values.
         if isinstance(data, basestring):
             try:
                 raw = data.encode("latin1")
@@ -106,7 +98,6 @@ def _local_name(tag):
 
 
 def _col_to_index(col):
-    """Convert Excel column letters to 1-based index."""
     result = 0
     for ch in col.upper():
         if not ("A" <= ch <= "Z"):
@@ -130,7 +121,6 @@ def _cell_to_rc(ref):
     col_index = _col_to_index(col)
     if col_index is None:
         return None
-    # SimulationVBA's ExcelSheet uses 0-based row/col indexes.
     return row - 1, col_index - 1
 
 
@@ -162,7 +152,6 @@ def _add_global(vm, name, value):
 
 
 class OOXMLWorkbookContext(object):
-    """Read-only resolver for OOXML Excel workbook metadata."""
 
     def __init__(self, zf):
         self.zf = zf
@@ -288,11 +277,9 @@ class OOXMLWorkbookContext(object):
                     self.cell_values[key.lower()] = value
 
     def _resolve_defined_name_value(self, target):
-        """Resolve a definedName target such as Sheet1!$K$2 to a cell value."""
         if target is None:
             return None
         target = str(target).strip()
-        # Drop workbook qualifiers like 'Book.xlsx'!Sheet1!$A$1 when present.
         if "!" not in target:
             return None
         sheet_part, cell_part = target.rsplit("!", 1)
@@ -300,14 +287,12 @@ class OOXMLWorkbookContext(object):
         if "]" in sheet_part:
             sheet_part = sheet_part[sheet_part.rindex("]") + 1:]
         cell_part = cell_part.strip().replace("$", "")
-        # Ranges: use the first cell, which matches most malware use of Goto + Selection.
         if ":" in cell_part:
             cell_part = cell_part.split(":", 1)[0]
         key = "__excel_cell." + sheet_part.lower() + "!" + cell_part.lower()
         return self.cell_values.get(key)
 
     def _relationship_targets_for_sheet(self, sheet_path):
-        """Return drawing package paths associated with a worksheet."""
         base = posixpath.dirname(sheet_path)
         rels_path = posixpath.join(base, "_rels", posixpath.basename(sheet_path) + ".rels")
         if rels_path not in self.names:
@@ -332,7 +317,6 @@ class OOXMLWorkbookContext(object):
         root = _parse_xml(text)
         results = []
         if root is None:
-            # Regex fallback for malformed XML.
             pat = r"<(?:[^:>]+:)?(?:cNvPr|docPr)\b([^>]*)>"
             chunks = re.findall(pat, text, re.I | re.S)
             if len(chunks) == 0:
@@ -359,12 +343,9 @@ class OOXMLWorkbookContext(object):
         return results
 
     def _read_textbox_text_from_drawing(self, drawing_path):
-        """Best effort extraction of text in DrawingML textboxes."""
         root = _parse_xml(_safe_read(self.zf, drawing_path))
         if root is None:
             return []
-        # Many spreadsheet textboxes store the text in a:t elements. This is
-        # intentionally broad; the text is only used as an additional candidate.
         texts = []
         curr = []
         for elem in root.iter():
@@ -378,12 +359,10 @@ class OOXMLWorkbookContext(object):
 
     def _read_shapes(self):
         seen_drawings = []
-        # Prefer sheet relationship order so Shapes(1), Shapes(2) matches Excel.
         for sheet_path in self.sheet_paths:
             for drawing_path in self._relationship_targets_for_sheet(sheet_path):
                 if drawing_path not in seen_drawings:
                     seen_drawings.append(drawing_path)
-        # Fallback: enumerate all drawings.
         for name in sorted(self.names):
             if name.startswith("xl/drawings/drawing") and name.endswith(".xml"):
                 if name not in seen_drawings:
@@ -410,10 +389,6 @@ class OOXMLWorkbookContext(object):
                 })
 
     def populate(self, vm):
-        """Populate a SimulationVBA instance with resolved workbook values."""
-        # Expose common host objects as self-resolving names. This allows a
-        # MemberAccessExpression to build ActiveSheet.Shapes('2').AlternativeText
-        # instead of stopping at an unknown LHS.
         for obj_name in ("Application", "Excel.Application", "ActiveWorkbook", "ThisWorkbook", "ActiveSheet"):
             _add_global(vm, obj_name, obj_name)
 
@@ -422,12 +397,11 @@ class OOXMLWorkbookContext(object):
             _add_global(vm, "Application.ActiveSheet.Name", self.active_sheet_name)
             _add_global(vm, "ActiveWorkbook.ActiveSheet.Name", self.active_sheet_name)
 
-        # Cell values and defined names.
-        for key, value in self.cell_values.items():
+        for key, value in list(self.cell_values.items()):
             _add_doc_var(vm, key, value)
             _add_global(vm, key, value)
 
-        for name, target in self.defined_names.items():
+        for name, target in list(self.defined_names.items()):
             value = self._resolve_defined_name_value(target)
             if value is None:
                 value = target
@@ -435,7 +409,6 @@ class OOXMLWorkbookContext(object):
             _add_global(vm, "__excel_defined_name." + name, value)
             _add_global(vm, name, value)
 
-        # Shape alternate text/name/title values. VBA Shapes() is 1-based.
         pos = 1
         for shape in self.shape_values:
             value = shape.get("value")
@@ -468,10 +441,6 @@ class OOXMLWorkbookContext(object):
                     _add_global(vm, prefix + "." + accessor, value)
             pos += 1
 
-        # Heuristic: if a shape at a given position has a tiny/noisy
-        # alt-text (length < 16) while other shapes carry long Base64-like
-        # payloads, remap the best payload candidate to that position.
-        # Excel Shapes() is 1-based but XML extraction order may not match.
         _best_payload = None
         _best_payload_score = -1
         _payload_prefixes = ("PGh0", "TVq", "UEsDB", "SUV", "SFlG", "UGs")
@@ -489,7 +458,6 @@ class OOXMLWorkbookContext(object):
                 _best_payload_score = score
                 _best_payload = v
 
-        # For each position that got a tiny value, swap in the best payload.
         pos = 1
         for shape in self.shape_values:
             value = shape.get("value")
@@ -529,12 +497,6 @@ class OOXMLWorkbookContext(object):
 
 
 def read_ooxml_context(data, filename, vm):
-    """Populate *vm* with static OOXML values useful for emulation.
-
-    This function is deliberately best-effort. It never raises for malformed or
-    unsupported files; failures are logged at debug/warning level and normal
-    emulation continues.
-    """
     zf = None
     try:
         zf = _open_zip(data, filename)

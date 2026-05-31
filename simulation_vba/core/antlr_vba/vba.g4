@@ -1,99 +1,5 @@
-/*
-* Copyright (C) 2014 Ulrich Wolffgang <u.wol@wwu.de>
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
-
-/*
-* Visual Basic 6.0 Grammar for ANTLR4
-*
-* This is an approximate grammar for Visual Basic 6.0, derived 
-* from the Visual Basic 6.0 language reference 
-* http://msdn.microsoft.com/en-us/library/aa338033%28v=vs.60%29.aspx 
-* and tested against MSDN VB6 statement examples as well as several Visual 
-* Basic 6.0 code repositories.
-*
-* Characteristics:
-*
-* 1. This grammar is line-based and takes into account whitespace, so that
-*    member calls (e.g. "A.B") are distinguished from contextual object calls 
-*    in WITH statements (e.g. "A .B").
-*
-* 2. Keywords can be used as identifiers depending on the context, enabling
-*    e.g. "A.Type", but not "Type.B".
-*
-*
-* Known limitations:
-*
-* 1. Preprocessor statements (#if, #else, ...) must not interfere with regular
-*    statements.
-*
-* Change log:
-*
-* v1.4 Rubberduck
-*   - renamed to VBA; goal is to support VBA, and a shorter name is more practical.
-*   - added moduleDeclarations rule, moved moduleOptions there; options can now be
-*     located anywhere in declarations section, without breaking the parser.
-*   - added support for Option Compare Database.
-*   - added support for VBA 7.0 PtrSafe attribute for Declare statements.
-*   - implemented a fileNumber rule to locate identifier usages in file numbers.
-*   - added support for anonymous declarations in With blocks (With New Something)
-*   - blockStmt rules being sorted alphabetically was wrong. moved implicit call statement last.
-*   - '!' in dictionary call statement rule gets picked up as a type hint; changed member call
-*     to accept '!' as well as '.', but this complicates resolving the '!' shorthand syntax.
-*   - added a subscripts rule in procedure calls, to avoid breaking the parser with 
-*     a function call that returns an array that is immediately accessed.
-*   - added missing macroConstStmt (#CONST) rule.
-*   - amended selectCaseStmt rules to support all valid syntaxes.
-*   - blockStmt is now illegal in declarations section.
-*   - added ON_LOCAL_ERROR token, to support legacy ON LOCAL ERROR statements.
-*   - added additional typeHint? token to declareStmt, to support "Declare Function Foo$".
-*   - modified WS lexer rule to correctly account for line continuations;
-*   - modified multi-word lexer rules to use WS lexer token instead of ' '; this makes
-*     the grammar support "Option _\n Explicit" and other keywords being specified on multiple lines.
-*	- modified moduleOption rules to account for WS token in corresponding lexer rules.
-*   - modified NEWLINE lexer rule to properly support instructions separator (':').
-*   - tightened DATELITERAL lexer rule to the format enforced by the VBE, because "#fn: Close #" 
-*     in "Dim fn: fn = FreeFile: Open "filename" For Output As #fn: Close #fn" was picked up as a date literal.
-*   - redefined IDENTIFIER lexer rule to support non-Latin characters (e.g. Japanese)
-*   - made seekStmt, lockStmt, unlockStmt, getStmt and widthStmt accept a fileNumber (needed to support '#')
-*   - fixed precompiler directives, which can now be nested. they still can't interfere with other blocks though.
-*   - optional parameters can be a valueStmt.
-*   - added support for Octal and Currency literals.
-*   - implemented proper specs for DATELITERAL.
-*   - added comments to parse tree (removes known limitation #2).
-*   - macroConstStmt now allowed in blockStmt.
-*   - allow type hints for parameters.
-*
-*======================================================================================
-*
-* v1.3
-*	- call statement precedence
-*
-* v1.2
-*	- refined call statements
-*
-* v1.1 
-*	- precedence of operators and of ELSE in select statements
-*	- optimized member calls
-*
-* v1.0 Initial revision
-*/
-
 grammar vba;
 
-// module ----------------------------------
 
 startRule : module EOF;
 
@@ -161,7 +67,6 @@ moduleBodyElement :
 ;
 
 
-// block ----------------------------------
 
 attributeStmt : ATTRIBUTE WS implicitCallStmt_InStmt WS? EQ WS? literal (WS? ',' WS? literal)*;
 
@@ -238,7 +143,6 @@ blockStmt :
 ;
 
 
-// statements ----------------------------------
 
 appactivateStmt : APPACTIVATE WS valueStmt (WS? ',' WS? valueStmt)?;
 
@@ -477,7 +381,6 @@ sC_Case :
 	block?
 ;
 
-// ELSE first, so that it is not interpreted as a variable call
 sC_Cond :
     ELSE                                                            # caseCondElse
     | sC_Selection (WS? ',' WS? sC_Selection)*                      # caseCondSelection
@@ -513,7 +416,6 @@ unloadStmt : UNLOAD WS valueStmt;
 
 unlockStmt : UNLOCK WS fileNumber (WS? ',' WS? valueStmt (WS TO WS valueStmt)?)?;
 
-// operator precedence is represented by rule order
 valueStmt : 
 	literal 												# vsLiteral
 	| implicitCallStmt_InStmt 								# vsICS
@@ -577,19 +479,16 @@ writeStmt : WRITE WS fileNumber WS? ',' (WS? outputList)?;
 fileNumber : '#'? valueStmt;
 
 
-// complex call statements ----------------------------------
 
 explicitCallStmt : 
 	eCS_ProcedureCall 
 	| eCS_MemberProcedureCall 
 ;
 
-// parantheses are required in case of args -> empty parantheses are removed
 eCS_ProcedureCall : CALL WS ambiguousIdentifier typeHint? (WS? LPAREN WS? argsCall WS? RPAREN)? (WS? LPAREN subscripts RPAREN)*;
 
 
 
-// parantheses are required in case of args -> empty parantheses are removed
 eCS_MemberProcedureCall : CALL WS implicitCallStmt_InStmt? '.' ambiguousIdentifier typeHint? (WS? LPAREN WS? argsCall WS? RPAREN)? (WS? LPAREN subscripts RPAREN)*;
 
 
@@ -600,13 +499,9 @@ implicitCallStmt_InBlock :
 
 iCS_B_MemberProcedureCall : implicitCallStmt_InStmt? '.' ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt? (WS? LPAREN subscripts RPAREN)*;
 
-// parantheses are forbidden in case of args
-// variables cannot be called in blocks
-// certainIdentifier instead of ambiguousIdentifier for preventing ambiguity with statement keywords 
 iCS_B_ProcedureCall : certainIdentifier (WS argsCall)? (WS? LPAREN subscripts RPAREN)*;
 
 
-// iCS_S_MembersCall first, so that member calls are not resolved as separate iCS_S_VariableOrProcedureCalls
 implicitCallStmt_InStmt :
 	iCS_S_MembersCall
 	| iCS_S_VariableOrProcedureCall
@@ -625,7 +520,6 @@ iCS_S_MemberCall : ('.' | '!') (iCS_S_VariableOrProcedureCall | iCS_S_ProcedureO
 iCS_S_DictionaryCall : dictionaryCallStmt;
 
 
-// atomic call statements ----------------------------------
 
 argsCall : (argCall? WS? (',' | ';') WS?)* argCall (WS? (',' | ';') WS? argCall?)*;
 
@@ -634,7 +528,6 @@ argCall : LPAREN? ((BYVAL | BYREF | PARAMARRAY) WS)? RPAREN? valueStmt;
 dictionaryCallStmt : '!' ambiguousIdentifier typeHint?;
 
 
-// atomic rules for statements
 
 argList : LPAREN (WS? arg (WS? ',' WS? arg)*)? WS? RPAREN;
 
@@ -647,7 +540,6 @@ subscripts : subscript (WS? ',' WS? subscript)*;
 subscript : (valueStmt WS TO WS)? valueStmt;
 
 
-// atomic rules ----------------------------------
 
 ambiguousIdentifier : 
 	(IDENTIFIER | ambiguousKeyword)+
@@ -674,14 +566,12 @@ lineLabel : ambiguousIdentifier ':';
 
 literal : HEXLITERAL | OCTLITERAL | DATELITERAL | DOUBLELITERAL | INTEGERLITERAL | SHORTLITERAL | STRINGLITERAL | TRUE | FALSE | NOTHING | NULL;
 
-// "type" is a Python keyword: renamed to "aType"
 aType : (baseType | complexType) (WS? LPAREN WS? RPAREN)?;
 
 typeHint : '&' | '%' | '#' | '!' | '@' | '$';
 
 visibility : PRIVATE | PUBLIC | FRIEND | GLOBAL;
 
-// ambiguous keywords
 ambiguousKeyword : 
 	ACCESS | ADDRESSOF | ALIAS | AND | ATTRIBUTE | APPACTIVATE | APPEND | AS |
 	BEEP | BEGIN | BINARY | BOOLEAN | BYVAL | BYREF | BYTE | 
@@ -715,10 +605,8 @@ endOfLine : WS? (NEWLINE | comment | remComment) WS?;
 endOfStatement : (endOfLine | WS? COLON WS?)*;
 
 
-// lexer rules --------------------------------------------------------------------------------
 
 
-// keywords
 ACCESS : A C C E S S;
 ADDRESSOF : A D D R E S S O F;
 ALIAS : A L I A S;
@@ -898,7 +786,6 @@ WRITE : W R I T E;
 XOR : X O R;
 
 
-// symbols
 AMPERSAND : '&';
 ASSIGN : ':=';
 DIV : '\\' | '/';
@@ -920,7 +807,6 @@ L_SQUARE_BRACKET : '[';
 R_SQUARE_BRACKET : ']';
 
 
-// literals
 STRINGLITERAL : '"' (~["\r\n] | '""')* '"';
 OCTLITERAL : '&O' [0-8]+ '&'?;
 HEXLITERAL : '&H' [0-9A-F]+ '&'?;
@@ -940,7 +826,6 @@ fragment TIMEVALUE : DIGIT+ AMPM | DIGIT+ TIMESEPARATOR DIGIT+ (TIMESEPARATOR DI
 fragment TIMESEPARATOR : WS? (':' | '.') WS?;
 fragment AMPM : WS? (A M | P M | A | P);
 
-// whitespace, line breaks, comments, ...
 LINE_CONTINUATION : [ \t]+ UNDERSCORE '\r'? '\n' -> skip;
 NEWLINE : [\r\n\u2028\u2029]+;
 REMCOMMENT : COLON? REM WS (LINE_CONTINUATION | ~[\r\n\u2028\u2029])*;
@@ -950,16 +835,13 @@ COLON : ':';
 UNDERSCORE : '_';
 WS : ([ \t] | LINE_CONTINUATION)+;
 
-// identifier
 IDENTIFIER :  (~[[\]()\r\n\t.,'"|!@#$%^&*-+:=; ])+ | L_SQUARE_BRACKET (~[!\]\r\n])+ R_SQUARE_BRACKET;
 
 
-// letters
 fragment LETTER : [a-zA-Z_äöüÄÖÜ];
 fragment DIGIT : [0-9];
 fragment LETTERORDIGIT : [a-zA-Z0-9_äöüÄÖÜ];
 
-// case insensitive chars
 fragment A:('a'|'A');
 fragment B:('b'|'B');
 fragment C:('c'|'C');

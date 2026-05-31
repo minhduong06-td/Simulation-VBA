@@ -1,28 +1,12 @@
 #!/usr/bin/env python
-"""
-SimulationVBA: Read in document metadata item.
-
-SimulationVBA is a specialized engine to parse, analyze and interpret Microsoft
-VBA macros (Visual Basic for Applications), mainly for malware analysis.
-
-Author: Philippe Lagadec - http://www.decalage.info
-License: BSD, see source code or documentation
-
-Project Repository:
-https://github.com/decalage2/ViperMonkey
-"""
-
 import logging
 import subprocess
-
 from logger import log
-
 class FakeMeta(object):
     pass
 
 def get_metadata_exif(filename):
 
-    # Use exiftool to get the document metadata.
     output = None
     try:
         output = subprocess.check_output(["exiftool", filename])
@@ -30,14 +14,12 @@ def get_metadata_exif(filename):
         log.error("Cannot read metadata with exiftool. " + str(e))
         return {}
 
-    # Sanity check results.
     if (log.getEffectiveLevel() == logging.DEBUG):
         log.debug("exiftool output: '" + str(output) + "'")
     if (":" not in output):
         log.warning("Cannot read metadata with exiftool.")
         return {}
     
-    # Store the metadata in an object.
     lines = output.split("\n")
     r = FakeMeta()
     for line in lines:
@@ -48,5 +30,4 @@ def get_metadata_exif(filename):
         val = line[line.index(":") + 1:].strip().replace("...", "\r\n")
         setattr(r, field, val)
 
-    # Done.
     return r
