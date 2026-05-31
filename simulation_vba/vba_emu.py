@@ -13,6 +13,7 @@ import optparse
 import sys
 import os
 import traceback
+import hashlib
 import colorlog
 import re
 from datetime import datetime
@@ -52,6 +53,66 @@ def deobfuscate_simulate_text(data, entry_points=None):
     return deobfuscation.simulate_deobfuscation(data, entry_points=entry_points)
 
 
+def _extract_deob_artifacts(filename, deobfuscated):
+    artifact_dir = filename + "_artifacts"
+    try:
+        if not os.path.isdir(artifact_dir):
+            os.makedirs(artifact_dir)
+    except Exception as e:
+        log.warning("Cannot create artifact dir %s: %s", artifact_dir, str(e))
+        return
+
+    text = deobfuscated if isinstance(deobfuscated, str) else deobfuscated.decode("utf-8", "replace")
+
+    # 1. Extract AddFromString code
+    addfromstring_count = 0
+    for m in re.finditer(r'(?:xlmodule\.CodeModule\.)?AddFromString\s+"([^"]*)"',
+                         text, re.IGNORECASE):
+        code = m.group(1) or ""
+        if not code.strip():
+            continue
+        addfromstring_count += 1
+        fname = os.path.join(artifact_dir, "addfromstring_%d.vba" % addfromstring_count)
+        try:
+            raw = code.encode("utf-8", errors="replace")
+            with open(fname, "wb") as f:
+                f.write(raw)
+            fhash = hashlib.sha256(raw).hexdigest()
+            log.info("Saved AddFromString code (%d bytes) to %s [sha256:%s]", len(raw), fname, fhash)
+        except Exception as e:
+            log.warning("Failed to save AddFromString code: %s", str(e))
+
+    # 2. Extract shellcode from myArray / vbaArray = Array(...)
+    shellcode_match = re.search(r'(?:myArray|vbaArray|arrShellcode|shellcode)\s*=\s*Array\s*\(\s*([^)]+)\s*\)', text, re.IGNORECASE | re.DOTALL)
+    if shellcode_match:
+        raw_values = shellcode_match.group(1)
+        values = []
+        for tok in raw_values.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                v = int(tok)
+                values.append(v & 0xff)
+            except ValueError:
+                pass
+        if len(values) > 0:
+            fname = os.path.join(artifact_dir, "shellcode.bin")
+            try:
+                raw_data = bytes(values)
+                with open(fname, "wb") as f:
+                    f.write(raw_data)
+                fhash = hashlib.sha256(raw_data).hexdigest()
+                log.info("Dumped shellcode (%d bytes) to %s [sha256:%s]", len(raw_data), fname, fhash)
+            except Exception as e:
+                log.warning("Failed to dump shellcode: %s", str(e))
+
+    # 3. Log detected API calls
+    api_calls = re.findall(r'(CreateProcessA|VirtualAllocEx|WriteProcessMemory|CreateRemoteThread)', text, re.IGNORECASE)
+    if api_calls:
+        log.info("Detected API calls in deobfuscated text: %s", ", ".join(sorted(set(api_calls))))
+
+
 def _process_deob_simulate_input(filename, data, entry_points=None):
     if data is None:
         with open(filename, 'rb') as input_file:
@@ -65,6 +126,7 @@ def _process_deob_simulate_input(filename, data, entry_points=None):
     else:
         for action, params, description in actions:
             safe_print('%s\t%s\t%s' % (action, params, description))
+    _extract_deob_artifacts(filename, deobfuscated)
     return deobfuscated, actions
     
 def parse_stream(subfilename,
@@ -349,6 +411,20 @@ def _report_analysis_results(vm, data, display_int_iocs, orig_filename, out_file
         safe_print("Shell Code Bytes: " + str(shellcode_bytes))
         safe_print("+---------------------------------------------------------+")
         safe_print('')
+        out_dir = core.vba_context.out_dir
+        if out_dir:
+            fname = os.path.join(out_dir, "shellcode.bin")
+            try:
+                if not os.path.isdir(out_dir):
+                    os.makedirs(out_dir)
+                raw_data = bytes(shellcode_bytes)
+                file_hash = hashlib.sha256(raw_data).hexdigest()
+                with open(fname, "wb") as f:
+                    f.write(raw_data)
+                vm.actions.append(("Dropped File Hash", file_hash, "File Name: shellcode.bin"))
+                log.info("Dumped shellcode (%d bytes) to %s", len(raw_data), fname)
+            except Exception as e:
+                log.error("Failed to dump shellcode: %s", str(e))
 
     pull_embedded_pe_files(data, core.vba_context.out_dir)
                 
