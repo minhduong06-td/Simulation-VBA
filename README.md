@@ -187,12 +187,5 @@ unzip sample.xlsm_artifacts.zip   # password: infected
 | `SIMULATIONVBA_DOCKER_PULL` | `0` | Pull image before each run |
 | `SIMULATIONVBA_DOCKER_KEEP` | `0` | Keep container after run for debugging |
 
-## Safety Notes
-
-- Analyze untrusted files only in an isolated environment (VM, sandbox).
-- The Docker wrapper starts containers with `--network none`.
-- Dangerous actions (`Shell`, `CreateObject`, registry, process injection) are logged and stubbed — never executed for real.
-- The `--deob simulate` path is non-destructive; unsupported statements are preserved in output.
-- Extracted artifacts (`addfromstring_N.vba`, `shellcode.bin`) are written to disk for manual inspection only — never executed automatically.
-- Do not open suspicious Office documents in Microsoft Office on your main system.
+---
 
