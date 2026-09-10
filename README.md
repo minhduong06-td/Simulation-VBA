@@ -155,37 +155,5 @@ Files dropped during emulation are copied to `<input>_artifacts/` and `<input>_a
 | `addfromstring_N.vba` | VBA code dynamically injected via `xlmodule.CodeModule.AddFromString` |
 | `shellcode.bin` | Shellcode bytes extracted from `Array(...)` patterns in deobfuscated code |
 
-### Example: XLSM analysis
-
-```
-invoice-42369643.xlsm_artifacts/
-└── LwTHLrGh.hta            (10631 bytes — decoded HTA payload)
-```
-
-### Example: HTA `--deob simulate` analysis
-
-```
-stage2.hta_artifacts/
-├── addfromstring_1.vba      (636 bytes — injected VBA code)
-└── shellcode.bin            (416 bytes — shellcode from Array)
-```
-
-### Password-protected zip
-
-The zip is password-protected with `infected`:
-
-```bash
-unzip -l sample.xlsm_artifacts.zip
-unzip sample.xlsm_artifacts.zip   # password: infected
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `SIMULATIONVBA_DOCKER_IMAGE` | `md06/simulation:latest` | Docker image tag |
-| `SIMULATIONVBA_DOCKER_PULL` | `0` | Pull image before each run |
-| `SIMULATIONVBA_DOCKER_KEEP` | `0` | Keep container after run for debugging |
-
 ---
 
